@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Registrar Nueva Partida</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f7fb;
+            color: #173b70;
+        }
+
+        .contenedor {
+            width: 90%;
+            max-width: 1250px;
+            margin: 40px auto;
+            background: white;
+            padding: 25px 35px 35px 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+
+        /* TÍTULO */
+
+        h1 {
+            text-align: center;
+            margin: 5px 0 28px 0;
+            font-size: 34px;
+            color: #174b87;
+        }
+
+        /* FORMULARIO */
+
+        .formulario {
+            border: 1px solid #b9cbe5;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        /* CABECERAS AZULES */
+
+        .cabeceras {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .cabecera {
+            background: linear-gradient(90deg, #2877d2, #1461b7);
+            color: white;
+            text-align: center;
+            padding: 14px;
+            font-size: 25px;
+            font-weight: bold;
+        }
+
+        /* DOS COLUMNAS */
+
+        .columnas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 520px;
+        }
+
+        .columna {
+            padding: 25px 40px;
+        }
+
+        .columna.izquierda {
+            border-right: 1px solid #c7d5e8;
+        }
+
+        /* CAMPOS */
+
+        .campo {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 7px;
+            color: #173f75;
+        }
+
+        .obligatorio {
+            color: #d72828;
+        }
+
+        input,
+        select {
+            width: 100%;
+            height: 43px;
+            border: 1px solid #b9cce5;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 17px;
+            color: #294d7c;
+            background: white;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border: 2px solid #2877d2;
+            box-shadow: 0 0 5px rgba(40,119,210,0.25);
+        }
+
+        input::placeholder {
+            color: #5b78a1;
+        }
+
+        /* PROCESO */
+
+        .proceso-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .proceso-info input {
+            flex: 1;
+        }
+
+        .mensaje {
+            background: #eef4fc;
+            color: #45628a;
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-style: italic;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        /* BOTONES */
+
+        .botones {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .boton {
+            border: none;
+            border-radius: 8px;
+            height: 58px;
+            padding: 0 55px;
+            font-size: 21px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .guardar {
+            background: #32ad25;
+        }
+
+        .guardar:hover {
+            background: #278b1d;
+        }
+
+        .cancelar {
+            background: #59677c;
+        }
+
+        .cancelar:hover {
+            background: #465367;
+        }
+
+        .icono {
+            font-size: 24px;
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 800px) {
+
+            .contenedor {
+                width: 96%;
+                padding: 20px;
+            }
+
+            .cabeceras,
+            .columnas {
+                grid-template-columns: 1fr;
+            }
+
+            .columna.izquierda {
+                border-right: none;
+                border-bottom: 1px solid #c7d5e8;
+            }
+
+            .proceso-info {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .mensaje {
+                white-space: normal;
+            }
+
+            .botones {
+                flex-direction: column;
+            }
+
+            .boton {
+                width: 100%;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Registrar Nueva Partida</h1>
+
+    <form method="POST">
+
+        <div class="formulario">
+
+            <!-- CABECERAS -->
+
+            <div class="cabeceras">
+
+                <div class="cabecera">
+                    Datos de la Partida *
+                </div>
+
+                <div class="cabecera">
+                    Proceso Actual
+                </div>
+
+            </div>
+
+
+            <!-- COLUMNAS -->
+
+            <div class="columnas">
+
+                <!-- COLUMNA IZQUIERDA -->
+
+                <div class="columna izquierda">
+                    <label>Número de Documento:</label>
+                    <input type="text" name="documento" required>
+
+
+                    <div class="campo">
+                        <label>
+                            Número de Partida
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            name="numero"
+                            placeholder="Ejemplo: R39101"
+                            required>
+                    </div>
+
+
+                    <div class="campo">
+                        <label>
+                            Cliente
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            name="cliente"
+                            placeholder="Ejemplo: Textiles Peru"
+                            required>
+                    </div>
+
+
+                    <div class="campo">
+                        <label>
+                            Color
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            name="color"
+                            placeholder="Ejemplo: Azul"
+                            required>
+                    </div>
+
+                    <div class="campo">
+                        <label>
+                            Código de Color
+                           <span class="obligatorio">*</span>
+                         </label>
+
+                        <input
+                            type="text"
+                            name="codcolor"
+                            placeholder="Ejemplo: ROS001"
+                            required>
+                    </div>
+
+
+                    <div class="campo">
+                        <label>
+                            Rollos
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <input
+                            type="number"
+                            name="rollos"
+                            placeholder="Cantidad de rollos"
+                            min="0"
+                            required>
+                    </div>
+
+
+                    <div class="campo">
+                        <label>
+                            Kilos
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <input
+                            type="number"
+                            name="kilos"
+                            placeholder="Peso en kilos"
+                            step="0.001"
+                            min="0"
+                            required>
+                    </div>
+
+
+                    <div class="campo">
+                        <label>
+                            Artículo
+                        </label>
+
+                        <input
+                            type="text"
+                            name="articulo"
+                            placeholder="Ejemplo: Algodón peinado">
+                    </div>
+
+                </div>
+
+
+                <!-- COLUMNA DERECHA -->
+
+                <div class="columna derecha">
+
+                    <div class="campo">
+
+                        <label>
+                            Proceso
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <div class="proceso-info">
+
+                            <input
+                                type="text"
+                                name="proceso"
+                                value="Recepción"
+                                readonly>
+
+                            <span class="mensaje">
+                                Inicio automático en Recepción
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="campo">
+
+                        <label>
+                            Estado
+                            <span class="obligatorio">*</span>
+                        </label>
+
+                        <select name="estado" required>
+
+                            <option value="En proceso">
+                                En proceso
+                            </option>
+
+                            <option value="Finalizado">
+                                Finalizado
+                            </option>
+
+                            <option value="Pendiente">
+                                Pendiente
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- BOTONES -->
+
+        <div class="botones">
+
+            <button
+                type="submit"
+                class="boton guardar">
+
+                <span class="icono">💾</span>
+                Guardar
+
+            </button>
+
+
+            <a
+                href="/"
+                class="boton cancelar">
+
+                <span class="icono">❌</span>
+                Cancelar
+
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
+
+</body>
+</html>

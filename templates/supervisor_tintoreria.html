@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Supervisor de Tintorería</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .encabezado {
+            background-color: #1f2937;
+            color: white;
+            padding: 25px;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .contenedor {
+            padding: 25px;
+        }
+
+        .filtros {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        .filtros h2 {
+            margin-top: 0;
+        }
+
+        .filtros input,
+        .filtros select {
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        .titulo {
+            margin-bottom: 15px;
+        }
+
+        .partida {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .partida h3 {
+            margin-top: 0;
+        }
+
+        .datos {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .dato strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .estado {
+            margin-top: 15px;
+            padding: 8px 12px;
+            display: inline-block;
+            border-radius: 20px;
+            background-color: #fff3cd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="encabezado">
+        <h1>🧵 Supervisor de Tintorería</h1>
+    </div>
+
+    <div class="contenedor">
+
+        <div class="filtros">
+
+            <h2>Buscar partidas</h2>
+
+            <input
+                type="text"
+                id="buscarPartida"
+                placeholder="Partida">
+
+            <input
+                type="text"
+                id="buscarDocumento"
+                placeholder="Documento">
+
+            <select>
+                <option>Todos los clientes</option>
+            </select>
+
+            <select>
+                <option>Todos los estados</option>
+            </select>
+
+        </div>
+
+        <h2 class="titulo">Partidas en producción</h2>
+
+{% for partida in partidas %}
+
+<div class="partida"
+     data-partida="{{ partida[0] }}"
+     data-documento="{{ partida[1] }}">
+
+    <h3>Partida {{ partida[0] }}</h3>
+
+    <div class="datos">
+
+        <div class="dato">
+            <strong>Cliente</strong>
+            {{ partida[2] }}
+        </div>
+
+        <div class="dato">
+            <strong>Color</strong>
+            {{ partida[3] }}
+        </div>
+
+        <div class="dato">
+            <strong>Kilos</strong>
+            {{ partida[5] }} kg
+        </div>
+
+        <div class="dato">
+            <strong>Rollos</strong>
+            {{ partida[4] }}
+        </div>
+
+        <div class="dato">
+            <strong>Proceso actual</strong>
+            {{ partida[6] }}
+        </div>
+
+    </div>
+
+    <div class="estado">
+        {{ partida[7] }}
+    </div>
+
+    <div class="avance">
+    <h3>AVANCE</h3>
+
+    <div class="proceso-avance">
+        <span>☐ Preparada</span>
+        <span>Realizado</span>
+        <span>Supervisado</span>
+    </div>
+
+    <div class="proceso-avance">
+        <span>☐ Termofijada</span>
+        <span>Realizado</span>
+        <span>Supervisado</span>
+    </div>
+
+    <div class="proceso-avance">
+    <span>☐ Teñida</span>
+    <span>Realizado</span>
+    <span>Supervisado</span>
+</div>
+
+<div class="detalle-proceso">
+
+    <p><strong>Operario:</strong> Marco Tanta</p>
+
+    <p><strong>Máquina:</strong> Tintorera 03</p>
+
+    <p><strong>Observación:</strong></p>
+
+    <textarea rows="2" placeholder="Escriba una observación"></textarea>
+
+    <div class="botones-proceso">
+        <button type="button">Realizado</button>
+        <button type="button">Supervisado</button>
+    </div>
+
+</div>
+
+    <div class="proceso-avance">
+        <span>☐ Secada</span>
+        <span>Realizado</span>
+        <span>Supervisado</span>
+    </div>
+
+    <div class="proceso-avance">
+        <span>☐ Compactada</span>
+        <span>Realizado</span>
+        <span>Supervisado</span>
+    </div>
+</div>
+
+</div>
+
+{% endfor %}
+
+
+    </div>
+    <script>
+
+    const buscarPartida = document.getElementById("buscarPartida");
+    const partidas = document.querySelectorAll(".partida");
+
+    buscarPartida.addEventListener("input", function() {
+
+        const texto = buscarPartida.value.toLowerCase();
+
+        partidas.forEach(function(partida) {
+
+            const numero = partida.dataset.partida.toLowerCase();
+
+            if (numero.includes(texto)) {
+                partida.style.display = "";
+            } else {
+                partida.style.display = "none";
+            }
+
+        });
+
+    });
+
+    const buscarDocumento = document.getElementById("buscarDocumento");
+
+buscarDocumento.addEventListener("input", function() {
+
+    const texto = buscarDocumento.value.toLowerCase();
+
+    partidas.forEach(function(partida) {
+
+        const documento = partida.dataset.documento.toLowerCase();
+
+        if (documento.includes(texto)) {
+            partida.style.display = "";
+        } else {
+            partida.style.display = "none";
+        }
+
+    });
+
+});
+
+</script>
+
+</body>
+</html>
