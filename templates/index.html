@@ -23,7 +23,7 @@
         <thead class="table-primary">
             <tr>
                 <th>Número</th><th>Cliente</th><th>Color</th><th>Rollos</th>
-                <th>Kilos</th><th>Artículo</th><th>Proceso Actual</th><th>Estado</th><th>Acciones</th>
+                <th>Kilos</th><th>Artículo</th><th>Proceso Actual</th><th>Siguiente Proceso</th><th>Estado</th><th>Acciones</th>
             </tr>
         </thead>
         <tbody>
@@ -36,11 +36,15 @@
                 <td>{{ partida.Kilos }}</td>
                 <td>{{ partida.Articulo }}</td>
                 <td>{{ partida.ProcesoActual }}</td>
+                <td>{{ partida.SiguienteProceso }}</td>
                 <td>{{ partida.Estado }}</td>
                 <td>
                     <a href="/editar_partida/{{ partida.NumeroPartida }}" class="btn btn-sm btn-warning">Editar</a>
+                    <a href="/avanzar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-success">▶️ Avanzar</a>
+                    <a href="/reprocesar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-info">🔄 Reprocesar</a>
                     <a href="/eliminar_partida/{{ partida.NumeroPartida }}" class="btn btn-sm btn-danger"
-                       onclick="return confirm('¿Seguro que deseas eliminar esta partida?');">Eliminar</a>
+                             onclick="return confirm('¿Seguro que deseas eliminar esta partida?');">Eliminar
+                            </a>
                 </td>
             </tr>
             {% endfor %}

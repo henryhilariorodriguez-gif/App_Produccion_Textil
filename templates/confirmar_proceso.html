@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Confirmar proceso</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <style>
+
+        .resultado-operario,
+        .resultado-maquina {
+            cursor: pointer;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            background: white;
+        }
+
+        .resultado-operario:hover,
+        .resultado-maquina:hover {
+            background-color: #f0f0f0;
+        }
+
+        #resultadosOperarios,
+        #resultadosMaquinas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+    </style>
+
+</head>
+
+
+<body class="bg-light">
+
+
+<div class="container mt-5">
+
+    <div class="card shadow-sm">
+
+        <div class="card-body">
+
+            <h2 class="mb-4">
+                Confirmar siguiente proceso
+            </h2>
+
+
+            <p>
+                <strong>Partida:</strong>
+                {{ partida.NumeroPartida }}
+            </p>
+
+            <p>
+                <strong>Artículo:</strong>
+                {{ partida.Articulo }}
+            </p>
+
+            <p>
+                <strong>Proceso actual:</strong>
+                {{ partida.ProcesoActual }}
+            </p>
+
+
+            <div class="alert alert-primary">
+
+                <strong>Siguiente proceso:</strong>
+                {{ siguiente_proceso }}
+
+            </div>
+
+
+            <form method="POST">
+
+
+                <!-- ========================= -->
+                <!-- OPERARIO -->
+                <!-- ========================= -->
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Operario
+                    </label>
+
+
+                    <input
+                        type="text"
+                        id="buscarOperario"
+                        class="form-control"
+                        placeholder="🔎 Escriba nombre o apellido..."
+                        autocomplete="off">
+
+
+                    <input
+                        type="hidden"
+                        name="operario"
+                        id="operarioSeleccionado"
+                        required>
+
+
+                    <div
+                        id="resultadosOperarios"
+                        class="mt-1">
+                    </div>
+
+
+                    <select
+                        id="listaOperarios"
+                        style="display: none;">
+
+                        {% for operario in operarios %}
+
+                            <option value="{{ operario.OperarioID }}">
+                                {{ operario.Nombre }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <!-- ========================= -->
+                <!-- MAQUINA -->
+                <!-- ========================= -->
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Máquina
+                    </label>
+
+
+                    <input
+                        type="text"
+                        id="buscarMaquina"
+                        class="form-control"
+                        placeholder="🔎 Escriba el nombre de la máquina..."
+                        autocomplete="off">
+
+
+                    <input
+                        type="hidden"
+                        name="maquina"
+                        id="maquinaSeleccionada"
+                        required>
+
+
+                    <div
+                        id="resultadosMaquinas"
+                        class="mt-1">
+                    </div>
+
+
+                    <select
+                        id="listaMaquinas"
+                        style="display: none;">
+
+                        {% for maquina in maquinas %}
+
+                            <option value="{{ maquina.MaquinaID }}">
+                                {{ maquina.Nombre }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <!-- ========================= -->
+                <!-- BOTONES -->
+                <!-- ========================= -->
+
+                <button
+                    type="submit"
+                    class="btn btn-success">
+
+                    Confirmar inicio del proceso
+
+                </button>
+
+
+                <a
+                    href="/"
+                    class="btn btn-secondary">
+
+                    Cancelar
+
+                </a>
+
+
+            </form>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* ========================================= */
+/* BUSCADOR DE OPERARIOS */
+/* ========================================= */
+
+const buscarOperario =
+    document.getElementById("buscarOperario");
+
+const resultadosOperarios =
+    document.getElementById("resultadosOperarios");
+
+const operarioSeleccionado =
+    document.getElementById("operarioSeleccionado");
+
+const listaOperarios =
+    document.getElementById("listaOperarios");
+
+
+buscarOperario.addEventListener("input", function () {
+
+    const texto = this.value.toLowerCase().trim();
+
+    resultadosOperarios.innerHTML = "";
+
+    operarioSeleccionado.value = "";
+
+
+    if (texto === "") {
+        return;
+    }
+
+
+    let encontrados = 0;
+
+
+    for (let i = 0; i < listaOperarios.options.length; i++) {
+
+        const opcion = listaOperarios.options[i];
+
+        const nombre = opcion.textContent.trim();
+
+        const id = opcion.value;
+
+
+        if (nombre.toLowerCase().includes(texto)) {
+
+            const resultado =
+                document.createElement("div");
+
+            resultado.className =
+                "resultado-operario";
+
+            resultado.textContent =
+                nombre;
+
+
+            resultado.addEventListener("click", function () {
+
+                buscarOperario.value =
+                    nombre;
+
+                operarioSeleccionado.value =
+                    id;
+
+                resultadosOperarios.innerHTML = "";
+
+            });
+
+
+            resultadosOperarios.appendChild(resultado);
+
+            encontrados++;
+
+        }
+
+    }
+
+
+    if (encontrados === 0) {
+
+        resultadosOperarios.innerHTML =
+            '<div class="p-2 text-muted">No se encontró ningún operario</div>';
+
+    }
+
+});
+
+
+/* ========================================= */
+/* BUSCADOR DE MAQUINAS */
+/* ========================================= */
+
+const buscarMaquina =
+    document.getElementById("buscarMaquina");
+
+const resultadosMaquinas =
+    document.getElementById("resultadosMaquinas");
+
+const maquinaSeleccionada =
+    document.getElementById("maquinaSeleccionada");
+
+const listaMaquinas =
+    document.getElementById("listaMaquinas");
+
+
+buscarMaquina.addEventListener("input", function () {
+
+    const texto = this.value.toLowerCase().trim();
+
+    resultadosMaquinas.innerHTML = "";
+
+    maquinaSeleccionada.value = "";
+
+
+    if (texto === "") {
+        return;
+    }
+
+
+    let encontrados = 0;
+
+
+    for (let i = 0; i < listaMaquinas.options.length; i++) {
+
+        const opcion = listaMaquinas.options[i];
+
+        const nombre = opcion.textContent.trim();
+
+        const id = opcion.value;
+
+
+        if (nombre.toLowerCase().includes(texto)) {
+
+            const resultado =
+                document.createElement("div");
+
+            resultado.className =
+                "resultado-maquina";
+
+            resultado.textContent =
+                nombre;
+
+
+            resultado.addEventListener("click", function () {
+
+                buscarMaquina.value =
+                    nombre;
+
+                maquinaSeleccionada.value =
+                    nombre;
+
+                resultadosMaquinas.innerHTML = "";
+
+            });
+
+
+            resultadosMaquinas.appendChild(resultado);
+
+            encontrados++;
+
+        }
+
+    }
+
+
+    if (encontrados === 0) {
+
+        resultadosMaquinas.innerHTML =
+            '<div class="p-2 text-muted">No se encontró ninguna máquina</div>';
+
+    }
+
+});
+
+</script>
+
+
+</body>
+
+</html>
+

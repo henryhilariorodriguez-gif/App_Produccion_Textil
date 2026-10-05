@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Procesos de Producción</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .encabezado {
+            background-color: #1f2937;
+            color: white;
+            padding: 25px;
+        }
+
+        .encabezado h1 {
+            margin: 0;
+        }
+
+        .contenedor {
+            padding: 30px;
+        }
+
+        .procesos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .proceso {
+            background-color: white;
+            padding: 30px 20px;
+            border-radius: 12px;
+            text-align: center;
+            text-decoration: none;
+            color: #1f2937;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .proceso:hover {
+            transform: translateY(-3px);
+        }
+
+        .icono {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .proceso h2 {
+            margin: 0;
+        }
+
+        .proceso p {
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="encabezado">
+        <h1>🧵 Procesos de Producción</h1>
+    </div>
+
+    <div class="contenedor">
+
+        <h2>Seleccione el área que desea supervisar</h2>
+
+        <div class="procesos">
+
+            <a href="/nueva_partida" class="proceso">
+                <div class="icono">📥</div>
+                <h2>Recepción</h2>
+                <p>Ingreso de partidas</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">🧵</div>
+                <h2>Preparado</h2>
+                <p>Preparación de la partida</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">🔥</div>
+                <h2>Termofijado</h2>
+                <p>Control del termofijado</p>
+            </a>
+
+            <a href="/supervisor_tintoreria" class="proceso">
+                <div class="icono">🎨</div>
+                <h2>Tintorería</h2>
+                <p>Control del teñido</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">💧</div>
+                <h2>Hidrocentrifugado</h2>
+                <p>Control del proceso</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">☀️</div>
+                <h2>Secado</h2>
+                <p>Control del secado</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">🔄</div>
+                <h2>Volteado</h2>
+                <p>Control del volteado</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">📦</div>
+                <h2>Compactado</h2>
+                <p>Control del compactado</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">📦</div>
+                <h2>Embolsado</h2>
+                <p>Control del embolsado</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">⚖️</div>
+                <h2>Pesado</h2>
+                <p>Peso final</p>
+            </a>
+
+            <a href="#" class="proceso">
+                <div class="icono">🚚</div>
+                <h2>Despacho</h2>
+                <p>Salida de producción</p>
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+</html>
