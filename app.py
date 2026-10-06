@@ -78,33 +78,39 @@ def avanzar(numero):
         return "Partida no encontrada."
 
 
-    # Buscar el siguiente proceso
-    cursor.execute("""
-        SELECT TOP 1
-            h.Proceso
-        FROM HojaRuta h
-        INNER JOIN Partidas p
-            ON h.Articulo = p.Articulo
-        WHERE p.NumeroPartida = ?
-          AND h.Orden > (
-              SELECT h2.Orden
-              FROM HojaRuta h2
-              WHERE h2.Articulo = p.Articulo
-                AND h2.Proceso = p.ProcesoActual
-          )
-        ORDER BY h.Orden
-    """, (numero,))
-
-    siguiente = cursor.fetchone()
-
-    if siguiente is None:
-        return "La partida ya completó su Hoja de Ruta."
-
-    siguiente_proceso = siguiente[0]
-    # Si la partida tiene un reproceso pendiente,
-    # usar el proceso indicado por el supervisor
+    # CAMBIO 3: primero se revisa si hay un reproceso pendiente.
+    # Antes, si la partida estaba en el último paso de su Hoja de Ruta,
+    # respondía "ya completó" y el reproceso quedaba trabado.
     if partida[3] == 'Pendiente de reproceso':
+
+        # Usar el proceso indicado por el supervisor
         siguiente_proceso = partida[4]
+
+    else:
+
+        # Buscar el siguiente proceso en la Hoja de Ruta
+        cursor.execute("""
+            SELECT TOP 1
+                h.Proceso
+            FROM HojaRuta h
+            INNER JOIN Partidas p
+                ON h.Articulo = p.Articulo
+            WHERE p.NumeroPartida = ?
+              AND h.Orden > (
+                  SELECT h2.Orden
+                  FROM HojaRuta h2
+                  WHERE h2.Articulo = p.Articulo
+                    AND h2.Proceso = p.ProcesoActual
+              )
+            ORDER BY h.Orden
+        """, (numero,))
+
+        siguiente = cursor.fetchone()
+
+        if siguiente is None:
+            return "La partida ya completó su Hoja de Ruta."
+
+        siguiente_proceso = siguiente[0]
 
 
     # Si el supervisor confirma
@@ -129,13 +135,17 @@ def avanzar(numero):
 
             if proceso_existente > 0:
                 return "Este proceso ya fue registrado para esta partida."
-            print("=== INICIANDO REGISTRO ===")
-            print("PARTIDA:", numero)
-            print("PROCESO:", siguiente_proceso)
-            print("ESTADO:", partida[3])
-            print("OPERARIO:", operario)
-            print("MAQUINA:", maquina)
+
+        print("=== INICIANDO REGISTRO ===")
+        print("PARTIDA:", numero)
+        print("PROCESO:", siguiente_proceso)
+        print("ESTADO:", partida[3])
+        print("OPERARIO:", operario)
+        print("MAQUINA:", maquina)
+
         # Registrar el proceso
+        # CAMBIO 1: ahora se guarda en MaquinaID (antes en Maquina),
+        # que es la columna que lee /supervisor_tintoreria.
         cursor.execute("""
             INSERT INTO Procesos
             (
@@ -143,7 +153,7 @@ def avanzar(numero):
                 NombreProceso,
                 FechaInicio,
                 OperarioID,
-                Maquina,
+                MaquinaID,
                 TipoProceso,
                 MotivoReproceso,
                 SupervisorReproceso
@@ -158,7 +168,7 @@ def avanzar(numero):
             partida[5] if partida[3] == 'Pendiente de reproceso' else None,
             partida[6] if partida[3] == 'Pendiente de reproceso' else None
         ))
-        
+
 
         # Actualizar la partida
         if partida[3] == 'Pendiente de reproceso':
@@ -223,7 +233,7 @@ def avanzar(numero):
     )
 # -------------------------------
 # REGISTRAR ALGUN REPROCESO
-# -------------------------------    
+# -------------------------------
 @app.route('/reprocesar/<numero>', methods=['GET', 'POST'])
 def reprocesar(numero):
 
@@ -265,22 +275,7 @@ def reprocesar(numero):
         print(proceso_reproceso, motivo, supervisor)
 
         # Guardar la solicitud de reproceso
-        cursor.execute("""
-            UPDATE Partidas
-            SET
-                Estado = 'Pendiente de reproceso',
-                ProcesoReproceso = ?,
-                MotivoReproceso = ?,
-                SupervisorReproceso = ?
-            WHERE NumeroPartida = ?
-        """, (
-            proceso_reproceso,
-            motivo,
-            supervisor,
-            numero
-        ))
-
-        # Guardar la solicitud de reproceso
+        # CAMBIO 2: se quitó el UPDATE repetido que había aquí.
         cursor.execute("""
             UPDATE Partidas
             SET
@@ -303,7 +298,7 @@ def reprocesar(numero):
         'reprocesar.html',
         partida=partida,
         procesos=procesos
-    )   
+    )
 
 
 # -------------------------------
@@ -436,13 +431,11 @@ def supervisor_tintoreria():
 
 @app.route('/procesos')
 def procesos():
-    return render_template('procesos.html')       
+    return render_template('procesos.html')
 # -------------------------------
 # CENTRO DE PROCESOS
 # -------------------------------
 
-
-  
 
 # -------------------------------
 # EJECUCIÓN DEL SERVIDOR
