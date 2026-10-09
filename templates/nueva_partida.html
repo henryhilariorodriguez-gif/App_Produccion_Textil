@@ -363,16 +363,99 @@
               </div>
 
 
-                    <div class="campo">
+                     <div class="campo">
                         <label>
                             Artículo
+                            <span class="obligatorio">*</span>
                         </label>
 
                         <input
                             type="text"
+                            id="buscarArticulo"
                             name="articulo"
-                            placeholder="Ejemplo: Algodón peinado">
+                            placeholder="Escriba para buscar el artículo..."
+                            autocomplete="off"
+                            required>
+
+                        <div id="resultadosArticulos"></div>
+
+                        <select id="listaArticulos" style="display: none;">
+                            {% for art in articulos %}
+                                <option>{{ art }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+
+                    <style>
+                        #resultadosArticulos {
+                            display: none;
+                            border: 1px solid #b9cce5;
+                            border-radius: 6px;
+                            max-height: 220px;
+                            overflow-y: auto;
+                            margin-top: 4px;
+                            background: white;
+                        }
+                        .resultado-articulo {
+                            padding: 10px 14px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            border-bottom: 1px solid #e3ebf6;
+                        }
+                        .resultado-articulo:hover {
+                            background: #eef4fc;
+                        }
+                    </style>
+
+                    <script>
+                    (function () {
+                        const entrada = document.getElementById("buscarArticulo");
+                        const resultados = document.getElementById("resultadosArticulos");
+                        const lista = Array.from(
+                            document.getElementById("listaArticulos").options
+                        ).map(o => o.textContent.trim());
+
+                        function validar() {
+                            entrada.setCustomValidity(
+                                lista.includes(entrada.value.trim())
+                                    ? ""
+                                    : "Elija un artículo de la lista"
+                            );
+                        }
+
+                        function mostrar() {
+                            const texto = entrada.value.toLowerCase().trim();
+                            resultados.innerHTML = "";
+                            const coincidencias = lista.filter(
+                                n => n.toLowerCase().includes(texto)
+                            );
+                            coincidencias.forEach(function (nombre) {
+                                const d = document.createElement("div");
+                                d.className = "resultado-articulo";
+                                d.textContent = nombre;
+                                d.addEventListener("mousedown", function (e) {
+                                    e.preventDefault();
+                                    entrada.value = nombre;
+                                    resultados.style.display = "none";
+                                    validar();
+                                });
+                                resultados.appendChild(d);
+                            });
+                            resultados.style.display =
+                                coincidencias.length ? "block" : "none";
+                        }
+
+                        entrada.addEventListener("input", function () {
+                            mostrar();
+                            validar();
+                        });
+                        entrada.addEventListener("focus", mostrar);
+                        entrada.addEventListener("blur", function () {
+                            resultados.style.display = "none";
+                        });
+                        validar();
+                    })();
+                    </script>
 
                 </div>
 

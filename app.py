@@ -33,12 +33,14 @@ def index():
             p.Articulo,
             (
                 SELECT TOP 1 h2.Proceso
-                FROM HojaRuta h2
-                WHERE h2.Articulo = p.Articulo
+                FROM Articulos a
+                INNER JOIN HojaRuta h2
+                    ON h2.Articulo = a.RutaArticulo
+                WHERE a.Nombre = p.Articulo
                   AND h2.Orden > (
                       SELECT h1.Orden
                       FROM HojaRuta h1
-                      WHERE h1.Articulo = p.Articulo
+                      WHERE h1.Articulo = a.RutaArticulo
                         AND h1.Proceso = p.ProcesoActual
                   )
                 ORDER BY h2.Orden
@@ -92,14 +94,16 @@ def avanzar(numero):
         cursor.execute("""
             SELECT TOP 1
                 h.Proceso
-            FROM HojaRuta h
-            INNER JOIN Partidas p
-                ON h.Articulo = p.Articulo
+            FROM Partidas p
+            INNER JOIN Articulos a
+                ON a.Nombre = p.Articulo
+            INNER JOIN HojaRuta h
+                ON h.Articulo = a.RutaArticulo
             WHERE p.NumeroPartida = ?
               AND h.Orden > (
                   SELECT h2.Orden
                   FROM HojaRuta h2
-                  WHERE h2.Articulo = p.Articulo
+                  WHERE h2.Articulo = a.RutaArticulo
                     AND h2.Proceso = p.ProcesoActual
               )
             ORDER BY h.Orden
@@ -255,10 +259,12 @@ def reprocesar(numero):
     # Buscar la Hoja de Ruta del artículo
     cursor.execute("""
         SELECT
-            Proceso
-        FROM HojaRuta
-        WHERE Articulo = ?
-        ORDER BY Orden
+            h.Proceso
+        FROM Articulos a
+        INNER JOIN HojaRuta h
+            ON h.Articulo = a.RutaArticulo
+        WHERE a.Nombre = ?
+        ORDER BY h.Orden
     """, (partida[1],))
 
     procesos = cursor.fetchall()
@@ -345,7 +351,15 @@ def nueva_partida():
 
         return redirect('/')
 
-    return render_template('nueva_partida.html')
+    cursor.execute("""
+        SELECT Nombre
+        FROM Articulos
+        WHERE Activo = 1
+        ORDER BY Nombre
+    """)
+    articulos = [fila[0] for fila in cursor.fetchall()]
+
+    return render_template('nueva_partida.html', articulos=articulos)
 
 # -------------------------------
 # EDITAR PARTIDA
