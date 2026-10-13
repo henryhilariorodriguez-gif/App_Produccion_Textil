@@ -190,6 +190,13 @@
 
                 </button>
 
+                {% if puede_omitir %}
+                <button type="submit" name="accion" value="omitir" formnovalidate
+                        onclick="return confirm('¿Omitir este paso?');">
+                     Omitir paso
+                </button>
+                {% endif %}
+
 
                 <a
                     href="/"

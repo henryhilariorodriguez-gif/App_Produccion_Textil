@@ -78,6 +78,9 @@ def avanzar(numero):
 
     if partida is None:
         return "Partida no encontrada."
+    
+    if partida[3] == 'Finalizada':
+        return "Esta partida ya está finalizada."
 
 
     # CAMBIO 3: primero se revisa si hay un reproceso pendiente.
@@ -115,16 +118,55 @@ def avanzar(numero):
             return "La partida ya completó su Hoja de Ruta."
 
         siguiente_proceso = siguiente[0]
+        
+    # Solo se pueden omitir los volteados, y no cuando es un reproceso
+    es_volteado = siguiente_proceso.lower().startswith('volteado')
+    puede_omitir = es_volteado and partida[3] != 'Pendiente de reproceso'    
 
 
     # Si el supervisor confirma
     if request.method == 'POST':
+        
+        if request.form.get('accion') == 'omitir':
 
-        operario = request.form['operario']
-        maquina = request.form['maquina']
+            if not puede_omitir:
+                return "Este paso no se puede omitir."
+
+            cursor.execute("""
+                INSERT INTO Procesos
+                (
+                    NumeroPartida,
+                    NombreProceso,
+                    FechaInicio,
+                    OperarioID,
+                    MaquinaID,
+                    TipoProceso
+                )
+                VALUES (?, ?, GETDATE(), NULL, NULL, 'Omitido')
+            """, (numero, siguiente_proceso))
+
+            cursor.execute("""
+                UPDATE Partidas
+                SET ProcesoActual = ?
+                WHERE NumeroPartida = ?
+            """, (siguiente_proceso, numero))
+
+            conn.commit()
+
+            return redirect('/')
+        
+        operario = request.form.get('operario')
+        maquina = request.form.get('maquina') or None
+
+        if not operario:
+            return "Falta seleccionar el operario."
+
+        if maquina is None:
+            return "Falta seleccionar la máquina."
 
 
         # Verificar que este proceso todavía no haya sido registrado
+        # (solo cuenta lo registrado después del último reproceso)
         if partida[3] != 'Pendiente de reproceso':
 
             cursor.execute("""
@@ -132,8 +174,14 @@ def avanzar(numero):
                 FROM Procesos
                 WHERE NumeroPartida = ?
                   AND NombreProceso = ?
-                  AND TipoProceso = ?
-            """, (numero, siguiente_proceso, 'Normal'))
+                  AND TipoProceso = 'Normal'
+                  AND ProcesoID > ISNULL((
+                      SELECT MAX(ProcesoID)
+                      FROM Procesos
+                      WHERE NumeroPartida = ?
+                        AND TipoProceso = 'Reproceso'
+                  ), 0)
+            """, (numero, siguiente_proceso, numero))
 
             proceso_existente = cursor.fetchone()[0]
 
@@ -190,11 +238,34 @@ def avanzar(numero):
 
         else:
 
+            # ¿Este proceso es el último de la Hoja de Ruta del artículo?
+            cursor.execute("""
+                SELECT CASE
+                    WHEN h.Orden = (
+                        SELECT MAX(Orden)
+                        FROM HojaRuta
+                        WHERE Articulo = a.RutaArticulo
+                    ) THEN 1 ELSE 0 END
+                FROM Articulos a
+                INNER JOIN HojaRuta h
+                    ON h.Articulo = a.RutaArticulo
+                WHERE a.Nombre = ?
+                  AND h.Proceso = ?
+            """, (partida[1], siguiente_proceso))
+
+            fila = cursor.fetchone()
+            es_ultimo = bool(fila and fila[0] == 1)
+
             cursor.execute("""
                 UPDATE Partidas
-                SET ProcesoActual = ?
+                SET ProcesoActual = ?,
+                    Estado = ?
                 WHERE NumeroPartida = ?
-            """, (siguiente_proceso, numero))
+            """, (
+                siguiente_proceso,
+                'Finalizada' if es_ultimo else partida[3],
+                numero
+            ))
 
 
         conn.commit()
@@ -233,7 +304,8 @@ def avanzar(numero):
         partida=partida,
         siguiente_proceso=siguiente_proceso,
         operarios=operarios,
-        maquinas=maquinas
+        maquinas=maquinas,
+        puede_omitir=puede_omitir
     )
 # -------------------------------
 # REGISTRAR ALGUN REPROCESO
@@ -425,7 +497,7 @@ def supervisor_tintoreria():
             pr.MaquinaID
         FROM Procesos pr
         WHERE pr.NumeroPartida = p.NumeroPartida
-          AND pr.NombreProceso = 'Tintoreria'
+          AND pr.NombreProceso = 'Teñido'
         ORDER BY pr.ProcesoID DESC
     ) pr
 
