@@ -1,0 +1,28 @@
+<style>
+    body { margin-left: 250px; }
+    .menu-lateral { position: fixed; top: 0; left: 0; width: 250px; height: 100vh;
+        overflow-y: auto; background: #fff; border-right: 1px solid #dde4ee;
+        padding: 16px 12px; z-index: 1000; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .menu-titulo { font-size: 18px; font-weight: 700; color: #14304f; padding: 6px 12px 14px; }
+    .menu-item { display: block; padding: 10px 12px; border-radius: 8px; color: #2b3b4f;
+        text-decoration: none; font-size: 15px; cursor: pointer; }
+    .menu-item:hover { background: #eef2f7; color: #14304f; }
+    .menu-item.activo { background: #dbe7f7; color: #14304f; font-weight: 600; }
+    .menu-sub { padding-left: 32px; font-size: 14px; }
+</style>
+
+<nav class="menu-lateral">
+    <div class="menu-titulo">Producción Textil</div>
+    <a class="menu-item" href="{{ url_for('inicio') }}">Inicio</a>
+    <a class="menu-item" href="{{ url_for('index') }}">Partidas</a>
+    <a class="menu-item" href="{{ url_for('nueva_partida') }}">Nueva partida</a>
+
+    <details {{ 'open' if request.path.startswith('/area/') or request.path.startswith('/supervisor') }}>
+        <summary class="menu-item">Tintorería</summary>
+        <a class="menu-item menu-sub" href="{{ url_for('supervisor_tintoreria') }}">Supervisor</a>
+        {% for nombre in areas_menu %}
+        <a class="menu-item menu-sub {{ 'activo' if request.view_args and request.view_args.get('nombre') == nombre }}"
+           href="{{ url_for('area', nombre=nombre) }}">{{ nombre }}</a>
+        {% endfor %}
+    </details>
+</nav>

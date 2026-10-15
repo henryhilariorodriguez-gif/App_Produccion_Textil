@@ -15,6 +15,78 @@ conn = pyodbc.connect(
 )
 cursor = conn.cursor()
 
+# Áreas del menú (cada una agrupa uno o más procesos de la Hoja de Ruta)
+AREAS = {
+    'Recepción': ['Recepción'],
+    'Preparado': ['Preparado', 'Preparado crudo'],
+    'Teñido': ['Teñido'],
+    'Termofijado': ['Termofijado'],
+    'Hidrocentrifugado': ['Hidrocentrifugado'],
+    'Secado': ['Secado'],
+    'Volteados': ['Volteado crudo', 'Volteado termofijado', 'Volteado para perchadora',
+                  'Volteado color', 'Volteado perchado', 'Volteado teñido'],
+    'Perchado': ['Perchado'],
+    'Compactado': ['Compactado'],
+    'Embolsado': ['Embolsado'],
+    'Pesado': ['Pesado'],
+    'Despacho': ['Despacho'],
+}
+
+# Hace que el menú esté disponible en todas las plantillas
+@app.context_processor
+def datos_menu():
+    return {'areas_menu': list(AREAS.keys())}
+
+SQL_PARTIDAS = """
+    SELECT
+        p.NumeroPartida, p.Cliente, p.Color, p.Rollos, p.Kilos,
+        p.ProcesoActual, p.Estado, p.Articulo,
+        (
+            SELECT TOP 1 h2.Proceso
+            FROM Articulos a
+            INNER JOIN HojaRuta h2 ON h2.Articulo = a.RutaArticulo
+            WHERE a.Nombre = p.Articulo
+              AND h2.Orden > (
+                  SELECT h1.Orden FROM HojaRuta h1
+                  WHERE h1.Articulo = a.RutaArticulo
+                    AND h1.Proceso = p.ProcesoActual
+              )
+            ORDER BY h2.Orden
+        ) AS SiguienteProceso
+    FROM Partidas p
+"""
+
+# -------------------------------
+# INICIO
+# -------------------------------
+@app.route('/inicio')
+def inicio():
+    cursor.execute("""
+        SELECT
+            SUM(CASE WHEN ISNULL(Estado,'') <> 'Finalizada' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN Estado = 'Pendiente de reproceso' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN Estado = 'Finalizada' THEN 1 ELSE 0 END)
+        FROM Partidas
+    """)
+    activas, pendientes, despachadas = cursor.fetchone()
+    return render_template('inicio.html',
+                           activas=activas or 0,
+                           pendientes=pendientes or 0,
+                           despachadas=despachadas or 0)
+
+# -------------------------------
+# PARTIDAS DE UN ÁREA
+# -------------------------------
+@app.route('/area/<nombre>')
+def area(nombre):
+    procesos = AREAS.get(nombre)
+    if procesos is None:
+        return "Área no encontrada."
+    marcadores = ','.join('?' * len(procesos))
+    cursor.execute(SQL_PARTIDAS + f" WHERE p.ProcesoActual IN ({marcadores})", tuple(procesos))
+    partidas = cursor.fetchall()
+    return render_template('index.html', partidas=partidas, titulo=nombre)
+
 # -------------------------------
 # LISTADO DE PARTIDAS
 # -------------------------------
