@@ -40,7 +40,7 @@ def datos_menu():
 SQL_PARTIDAS = """
     SELECT
         p.NumeroPartida, p.Cliente, p.Color, p.Rollos, p.Kilos,
-        p.ProcesoActual, p.Estado, p.Articulo,
+        p.ProcesoActual, p.Estado, p.Articulo, p.CodigoCrudo,
         (
             SELECT TOP 1 h2.Proceso
             FROM Articulos a
@@ -103,6 +103,7 @@ def index():
             p.ProcesoActual,
             p.Estado,
             p.Articulo,
+            p.CodigoCrudo,
             (
                 SELECT TOP 1 h2.Proceso
                 FROM Articulos a
@@ -504,6 +505,89 @@ def nueva_partida():
     articulos = [fila[0] for fila in cursor.fetchall()]
 
     return render_template('nueva_partida.html', articulos=articulos)
+
+ # -------------------------------
+# INGRESO POR GUÍA
+# -------------------------------
+@app.route('/nueva_guia', methods=['GET', 'POST'])
+def nueva_guia():
+
+    if request.method == 'POST':
+        datos = request.get_json()
+        documento = (datos.get('documento') or '').strip()
+        cliente = (datos.get('cliente') or '').strip()
+        partidas = datos.get('partidas') or []
+        es_crexsa = 'CREXSA' in cliente.upper()
+
+        if not documento or not cliente or not partidas:
+            return {'ok': False, 'error': 'Faltan datos de la guía.'}
+
+        numeros = [p['numero'].strip() for p in partidas]
+        if len(set(numeros)) != len(numeros):
+            return {'ok': False, 'error': 'Hay números de partida repetidos en la guía.'}
+
+        crudos = []
+        if es_crexsa:
+            crudos = [(p.get('codigo_crudo') or '').strip() for p in partidas]
+            if '' in crudos:
+                return {'ok': False, 'error': 'Falta el código de crudo en alguna partida.'}
+            if len(set(crudos)) != len(crudos):
+                return {'ok': False, 'error': 'Hay códigos de crudo repetidos en la guía.'}
+
+        # Revisar que no existan ya en el sistema
+        for n in numeros:
+            cursor.execute("SELECT COUNT(*) FROM Partidas WHERE NumeroPartida = ?", (n,))
+            if cursor.fetchone()[0] > 0:
+                return {'ok': False, 'error': f'La partida {n} ya existe en el sistema.'}
+
+        for c in crudos:
+            cursor.execute("SELECT NumeroPartida FROM Partidas WHERE CodigoCrudo = ?", (c,))
+            fila = cursor.fetchone()
+            if fila:
+                return {'ok': False, 'error': f'El código de crudo {c} ya está en la partida {fila[0]}.'}
+
+        # Cargar todas juntas: si algo falla, no se guarda ninguna
+        try:
+            for p in partidas:
+                numero = p['numero'].strip()
+                codigo_crudo = p['codigo_crudo'].strip() if es_crexsa else None
+
+                cursor.execute("""
+                    INSERT INTO Partidas
+                    (NumeroDocumento, NumeroPartida, Cliente, Color, CodColor,
+                     Rollos, Kilos, ProcesoActual, Estado, Articulo, CodigoCrudo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Recepción', 'En proceso', ?, ?)
+                """, (documento, numero, cliente, p['color'], p['codcolor'],
+                      p['rollos'], p['kilos'], p['articulo'], codigo_crudo))
+
+                cursor.execute("""
+                    SELECT TOP 1 ProcesoID
+                    FROM Procesos
+                    WHERE NumeroPartida = ? AND NombreProceso = 'Recepción'
+                    ORDER BY ProcesoID DESC
+                """, (numero,))
+                fila = cursor.fetchone()
+                if fila is None:
+                    raise ValueError(f'No se creó el proceso de Recepción de la partida {numero}.')
+
+                cursor.execute("UPDATE Procesos SET Peso = ? WHERE ProcesoID = ?",
+                               (p['peso'], fila[0]))
+
+            conn.commit()
+
+        except Exception as e:
+            conn.rollback()
+            return {'ok': False, 'error': f'No se pudo cargar la guía: {e}'}
+
+        return {'ok': True}
+
+    cursor.execute("SELECT Nombre FROM Articulos WHERE Activo = 1 ORDER BY Nombre")
+    articulos = [f[0] for f in cursor.fetchall()]
+
+    cursor.execute("SELECT DISTINCT Cliente FROM Partidas WHERE Cliente IS NOT NULL ORDER BY Cliente")
+    clientes = [f[0] for f in cursor.fetchall()]
+
+    return render_template('nueva_guia.html', articulos=articulos, clientes=clientes)   
 
 # -------------------------------
 # EDITAR PARTIDA

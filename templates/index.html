@@ -22,7 +22,7 @@
     <table class="table table-striped table-bordered shadow-sm">
         <thead class="table-primary">
             <tr>
-                <th>Número</th><th>Cliente</th><th>Color</th><th>Rollos</th>
+                <th>Número</th><th>Cód. crudo</th><th>Cliente</th><th>Color</th><th>Rollos</th>
                 <th>Kilos</th><th>Artículo</th><th>Proceso Actual</th><th>Siguiente Proceso</th><th>Estado</th><th>Acciones</th>
             </tr>
         </thead>
@@ -30,6 +30,7 @@
             {% for partida in partidas %}
             <tr>
                 <td>{{ partida.NumeroPartida }}</td>
+                <td>{{ partida.CodigoCrudo or '' }}</td>
                 <td>{{ partida.Cliente }}</td>
                 <td>{{ partida.Color }}</td>
                 <td>{{ partida.Rollos }}</td>
