@@ -111,9 +111,6 @@ let cargado = false;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const modal = new bootstrap.Modal($('modalPartida'));
-    if (!ARTICULOS.includes(p.articulo)) {
-        return errorModal('Elija un artículo de la lista.');
-    }
 
 function esCrexsa() {
     return $('cliente').value.toUpperCase().includes('CREXSA');

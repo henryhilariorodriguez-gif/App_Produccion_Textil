@@ -26,4 +26,12 @@
            href="{{ url_for('area', nombre=nombre) }}">{{ nombre }}</a>
         {% endfor %}
     </details>
+
+    <details {{ 'open' if request.path.startswith('/admin') }}>
+        <summary class="menu-item">Administración</summary>
+        <a class="menu-item menu-sub" href="{{ url_for('admin_catalogo', cat='articulos') }}">Artículos</a>
+        <a class="menu-item menu-sub" href="{{ url_for('admin_catalogo', cat='colores') }}">Colores</a>
+        <a class="menu-item menu-sub" href="{{ url_for('admin_catalogo', cat='operarios') }}">Operarios</a>
+        <a class="menu-item menu-sub" href="{{ url_for('admin_catalogo', cat='maquinas') }}">Máquinas</a>
+    </details>
 </nav>

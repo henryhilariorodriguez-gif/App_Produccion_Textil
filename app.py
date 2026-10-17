@@ -545,6 +545,11 @@ def nueva_guia():
             fila = cursor.fetchone()
             if fila:
                 return {'ok': False, 'error': f'El código de crudo {c} ya está en la partida {fila[0]}.'}
+                # Revisar que los artículos existan
+        for art in set(p['articulo'] for p in partidas):
+            cursor.execute("SELECT COUNT(*) FROM Articulos WHERE Nombre = ?", (art,))
+            if cursor.fetchone()[0] == 0:
+                return {'ok': False, 'error': f'El artículo "{art}" no existe en el sistema.'}    
 
         # Cargar todas juntas: si algo falla, no se guarda ninguna
         try:
@@ -678,6 +683,155 @@ def procesos():
 # CENTRO DE PROCESOS
 # -------------------------------
 
+# -------------------------------
+# ADMINISTRACIÓN DE CATÁLOGOS
+# -------------------------------
+# Cada catálogo se describe aquí. Los nombres de tabla y columnas salen SOLO de
+# este diccionario (nunca de lo que escribe el usuario), por eso es seguro armar el SQL con ellos.
+CATALOGOS = {
+    'operarios': {
+        'titulo': 'Operarios', 'tabla': 'Operarios',
+        'clave': 'OperarioID', 'clave_auto': True,
+        'unico': 'Nombre', 'orden': 'Nombre', 'tiene_activo': True,
+        'campos': [
+            {'col': 'Nombre', 'etiqueta': 'Nombre'},
+        ],
+    },
+    'maquinas': {
+        'titulo': 'Máquinas', 'tabla': 'Maquinas',
+        'clave': 'MaquinaID', 'clave_auto': True,
+        'unico': 'Nombre', 'orden': 'Nombre', 'tiene_activo': True,
+        'campos': [
+            {'col': 'Nombre', 'etiqueta': 'Nombre'},
+            {'col': 'Tipo', 'etiqueta': 'Tipo'},
+        ],
+    },
+    'colores': {
+        'titulo': 'Colores', 'tabla': 'Colores',
+        'clave': 'CodColor', 'clave_auto': False, 'etiqueta_clave': 'Código de color',
+        'unico': 'CodColor', 'orden': 'CodColor', 'tiene_activo': False,
+        'campos': [
+            {'col': 'Color', 'etiqueta': 'Color'},
+            {'col': 'Gama', 'etiqueta': 'Gama', 'opcional': True},
+        ],
+    },
+    'articulos': {
+        'titulo': 'Artículos', 'tabla': 'Articulos',
+        'clave': 'ArticuloID', 'clave_auto': True,
+        'unico': 'Nombre', 'orden': 'Nombre', 'tiene_activo': True,
+        'campos': [
+            {'col': 'Nombre', 'etiqueta': 'Nombre del artículo', 'solo_nuevo': True},
+            {'col': 'RutaArticulo', 'etiqueta': 'Sigue el mismo proceso que', 'tipo': 'ruta'},
+        ],
+    },
+}
+
+
+def columnas_catalogo(conf):
+    columnas = []
+    if not conf['clave_auto']:
+        columnas.append({'col': conf['clave'], 'etiqueta': conf['etiqueta_clave'],
+                         'solo_nuevo': True})
+    columnas.extend(conf['campos'])
+    return columnas
+
+
+@app.route('/admin/<cat>')
+def admin_catalogo(cat):
+    conf = CATALOGOS.get(cat)
+    if conf is None:
+        return "Catálogo no encontrado."
+
+    columnas = columnas_catalogo(conf)
+    seleccion = [conf['clave']] + [c['col'] for c in columnas if c['col'] != conf['clave']]
+    if conf['tiene_activo']:
+        seleccion.append('Activo')
+
+    cursor.execute(f"SELECT {', '.join(seleccion)} FROM {conf['tabla']} ORDER BY {conf['orden']}")
+    filas = [dict(zip(seleccion, r)) for r in cursor.fetchall()]
+
+    cursor.execute("SELECT DISTINCT RutaArticulo FROM Articulos ORDER BY RutaArticulo")
+    rutas = [r[0] for r in cursor.fetchall()]
+
+    return render_template('catalogo.html', cat=cat, conf=conf,
+                           columnas=columnas, filas=filas, rutas=rutas)
+
+
+@app.route('/admin/<cat>/guardar', methods=['POST'])
+def admin_guardar(cat):
+    conf = CATALOGOS.get(cat)
+    if conf is None:
+        return {'ok': False, 'error': 'Catálogo no encontrado.'}
+
+    datos = request.get_json()
+    id_ = datos.get('id')
+    valores = datos.get('valores') or {}
+    columnas = columnas_catalogo(conf)
+
+    limpios = {}
+    for c in columnas:
+        v = (valores.get(c['col']) or '').strip()
+        if not v and not c.get('opcional'):
+            return {'ok': False, 'error': f"Falta completar: {c['etiqueta']}."}
+        limpios[c['col']] = v or None
+
+    for c in columnas:
+        if c.get('tipo') == 'ruta':
+            cursor.execute("SELECT COUNT(*) FROM Articulos WHERE RutaArticulo = ?",
+                           (limpios[c['col']],))
+            if cursor.fetchone()[0] == 0:
+                return {'ok': False, 'error': 'Elija un proceso de la lista.'}
+
+    # No permitir duplicados
+    unico = conf['unico']
+    if id_ is None:
+        cursor.execute(f"SELECT COUNT(*) FROM {conf['tabla']} WHERE {unico} = ?",
+                       (limpios[unico],))
+    else:
+        cursor.execute(f"SELECT COUNT(*) FROM {conf['tabla']} WHERE {unico} = ? AND {conf['clave']} <> ?",
+                       (limpios[unico], id_))
+    if cursor.fetchone()[0] > 0:
+        return {'ok': False, 'error': f"Ya existe '{limpios[unico]}' en {conf['titulo']}."}
+
+    try:
+        if id_ is None:
+            cols = [c['col'] for c in columnas]
+            vals = [limpios[c] for c in cols]
+            if conf['tiene_activo']:
+                cols.append('Activo')
+                vals.append(1)
+            marcadores = ','.join('?' * len(cols))
+            cursor.execute(f"INSERT INTO {conf['tabla']} ({','.join(cols)}) VALUES ({marcadores})",
+                           tuple(vals))
+        else:
+            editables = [c['col'] for c in columnas if not c.get('solo_nuevo')]
+            sets = ', '.join(f'{c} = ?' for c in editables)
+            cursor.execute(f"UPDATE {conf['tabla']} SET {sets} WHERE {conf['clave']} = ?",
+                           tuple(limpios[c] for c in editables) + (id_,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return {'ok': False, 'error': f'No se pudo guardar: {e}'}
+
+    return {'ok': True}
+
+
+@app.route('/admin/<cat>/estado', methods=['POST'])
+def admin_estado(cat):
+    conf = CATALOGOS.get(cat)
+    if conf is None or not conf['tiene_activo']:
+        return {'ok': False, 'error': 'Operación no válida.'}
+
+    datos = request.get_json()
+    try:
+        cursor.execute(f"UPDATE {conf['tabla']} SET Activo = ? WHERE {conf['clave']} = ?",
+                       (int(datos['activo']), datos['id']))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return {'ok': False, 'error': f'No se pudo cambiar el estado: {e}'}
+
+    return {'ok': True}
 
 # -------------------------------
 # EJECUCIÓN DEL SERVIDOR

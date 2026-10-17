@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ conf.titulo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+{% include '_menu.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">{{ conf.titulo }}</h1>
+    <button type="button" class="btn btn-primary" onclick="nuevo()">+ Nuevo</button>
+</div>
+
+<input type="text" id="buscador" placeholder="Buscar..." autofocus
+       style="width:100%; max-width:400px; padding:8px; margin-bottom:10px;">
+
+<table class="table table-striped table-bordered shadow-sm">
+    <thead class="table-primary">
+        <tr>
+            {% for c in columnas %}<th>{{ c.etiqueta }}</th>{% endfor %}
+            {% if conf.tiene_activo %}<th>Estado</th>{% endif %}
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in filas %}
+        <tr data-id="{{ f[conf.clave] }}">
+            {% for c in columnas %}
+            <td data-col="{{ c.col }}">{{ f[c.col] if f[c.col] is not none else '' }}</td>
+            {% endfor %}
+            {% if conf.tiene_activo %}
+            <td>
+                {% if f.Activo %}<span class="badge bg-success">Activo</span>
+                {% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+            </td>
+            {% endif %}
+            <td class="text-nowrap">
+                <button type="button" class="btn btn-sm btn-warning" onclick="editar(this)">Editar</button>
+                {% if conf.tiene_activo %}
+                <button type="button"
+                        class="btn btn-sm {{ 'btn-outline-danger' if f.Activo else 'btn-outline-success' }}"
+                        onclick="cambiarEstado(this, {{ 0 if f.Activo else 1 }})">
+                    {{ 'Desactivar' if f.Activo else 'Activar' }}
+                </button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Ventana modal -->
+<div class="modal fade" id="modalCat" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" id="formCat" data-cat="{{ cat }}">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloModal">Nuevo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="errModal" class="alert alert-danger d-none"></div>
+                {% for c in columnas %}
+                <div class="mb-3">
+                    <label class="form-label" for="f_{{ c.col }}">{{ c.etiqueta }}</label>
+                    {% if c.tipo == 'ruta' %}
+                    <select id="f_{{ c.col }}" class="form-select campo" data-col="{{ c.col }}" required>
+                        <option value="">Seleccionar...</option>
+                        {% for r in rutas %}<option>{{ r }}</option>{% endfor %}
+                    </select>
+                    {% else %}
+                    <input id="f_{{ c.col }}" class="form-control campo" data-col="{{ c.col }}"
+                           data-solonuevo="{{ 1 if c.solo_nuevo else 0 }}"
+                           {{ '' if c.opcional else 'required' }} autocomplete="off">
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const CAT = $('formCat').dataset.cat;
+const modal = new bootstrap.Modal($('modalCat'));
+const campos = Array.from(document.querySelectorAll('#formCat .campo'));
+let idEditando = null;
+
+function nuevo() {
+    idEditando = null;
+    $('formCat').reset();
+    campos.forEach(c => c.readOnly = false);
+    $('errModal').classList.add('d-none');
+    $('tituloModal').textContent = 'Nuevo';
+    modal.show();
+}
+
+function editar(boton) {
+    const fila = boton.closest('tr');
+    idEditando = fila.dataset.id;
+    $('formCat').reset();
+    $('errModal').classList.add('d-none');
+    campos.forEach(c => {
+        const celda = fila.querySelector('td[data-col="' + c.dataset.col + '"]');
+        c.value = celda ? celda.textContent.trim() : '';
+        c.readOnly = c.dataset.solonuevo === '1';
+    });
+    $('tituloModal').textContent = 'Editar';
+    modal.show();
+}
+
+$('modalCat').addEventListener('shown.bs.modal', () => {
+    const primero = campos.find(c => !c.readOnly);
+    if (primero) primero.focus();
+});
+
+async function enviar(url, datos) {
+    const r = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(datos)
+    });
+    return await r.json();
+}
+
+$('formCat').addEventListener('submit', async e => {
+    e.preventDefault();
+    const valores = {};
+    campos.forEach(c => valores[c.dataset.col] = c.value.trim());
+    try {
+        const d = await enviar('/admin/' + CAT + '/guardar', {id: idEditando, valores: valores});
+        if (d.ok) { location.reload(); return; }
+        $('errModal').textContent = d.error;
+    } catch (err) {
+        $('errModal').textContent = 'No se pudo guardar. Revisa la terminal de la aplicación.';
+    }
+    $('errModal').classList.remove('d-none');
+});
+
+async function cambiarEstado(boton, activo) {
+    const fila = boton.closest('tr');
+    const texto = activo ? 'activar' : 'desactivar';
+    if (!confirm('¿Seguro que deseas ' + texto + ' este registro?')) return;
+    try {
+        const d = await enviar('/admin/' + CAT + '/estado', {id: fila.dataset.id, activo: activo});
+        if (d.ok) { location.reload(); return; }
+        alert(d.error);
+    } catch (err) {
+        alert('No se pudo cambiar el estado. Revisa la terminal de la aplicación.');
+    }
+}
+
+$('buscador').addEventListener('input', function () {
+    const texto = this.value.toLowerCase().trim();
+    document.querySelectorAll('table tbody tr').forEach(fila => {
+        fila.style.display = fila.textContent.toLowerCase().includes(texto) ? '' : 'none';
+    });
+});
+</script>
+</body>
+</html>
