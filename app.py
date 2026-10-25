@@ -226,7 +226,7 @@ def avanzar(numero):
 
             conn.commit()
 
-            return redirect('/')
+            return redirect(url_for('avanzar', numero=numero))
         
         operario = request.form.get('operario')
         maquina = request.form.get('maquina') or None
@@ -848,6 +848,104 @@ def supervisor_tintoreria():
         'supervisor_tintoreria.html',
         partidas=partidas
     )
+    
+
+# -------------------------------
+# HISTORIAL DE UNA PARTIDA
+# -------------------------------
+@app.route('/historial/<numero>')
+def historial_partida(numero):
+
+    # Datos generales de la partida
+    cursor.execute("""
+        SELECT
+            NumeroPartida,
+            NumeroDocumento,
+            Cliente,
+            Color,
+            Rollos,
+            Kilos,
+            Articulo,
+            ProcesoActual,
+            Estado
+        FROM Partidas
+        WHERE NumeroPartida = ?
+    """, (numero,))
+
+    partida = cursor.fetchone()
+
+    if partida is None:
+        return "Partida no encontrada.", 404
+
+    # Historial de procesos, reprocesos y pasos omitidos
+    cursor.execute("""
+        SELECT
+            pr.ProcesoID,
+            pr.NombreProceso,
+            pr.FechaInicio,
+            pr.FechaFin,
+            COALESCE(o.Nombre, 'Sin asignar') AS Operario,
+            COALESCE(m.Nombre, pr.Maquina, 'Sin asignar') AS Maquina,
+            pr.Peso,
+            pr.TipoProceso,
+            pr.MotivoReproceso,
+            pr.SupervisorReproceso
+        FROM Procesos pr
+        LEFT JOIN Operarios o
+            ON pr.OperarioID = o.OperarioID
+        LEFT JOIN Maquinas m
+            ON pr.MaquinaID = m.MaquinaID
+        WHERE pr.NumeroPartida = ?
+        ORDER BY pr.FechaInicio, pr.ProcesoID
+    """, (numero,))
+
+    historial = cursor.fetchall()
+    
+    
+    # Observaciones originales de las áreas, importadas desde Excel
+    cursor.execute("""
+        SELECT
+            Fecha,
+            Turno,
+            Area,
+            Maq,
+            Operario,
+            Observaciones,
+            FilaExcel
+        FROM dbo.Raw_Areas
+        WHERE LTRIM(RTRIM(Partida)) = ?
+          AND NULLIF(LTRIM(RTRIM(Observaciones)), '') IS NOT NULL
+        ORDER BY Fecha, FilaExcel
+    """, (numero,))
+
+    observaciones_areas = cursor.fetchall()
+
+    # Observaciones originales de Tintorería, importadas desde Excel
+    cursor.execute("""
+        SELECT
+            Fecha,
+            MQ,
+            Operario,
+            Peso,
+            Observaciones,
+            FilaExcel
+        FROM dbo.Raw_Tintoreria
+        WHERE LTRIM(RTRIM(Partida)) = ?
+          AND NULLIF(LTRIM(RTRIM(Observaciones)), '') IS NOT NULL
+        ORDER BY Fecha, FilaExcel
+    """, (numero,))
+
+    observaciones_tintoreria = cursor.fetchall()
+
+
+    return render_template(
+        'historial_partida.html',
+        partida=partida,
+        historial=historial,
+        observaciones_areas=observaciones_areas,
+        observaciones_tintoreria=observaciones_tintoreria
+    )
+   
 
 @app.route('/procesos')
 def procesos():

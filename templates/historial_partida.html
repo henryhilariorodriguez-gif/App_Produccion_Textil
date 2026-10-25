@@ -1,0 +1,275 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de partida</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #1f2937;
+        }
+
+        header {
+            background: #1f2937;
+            color: white;
+            padding: 22px;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: auto;
+            padding: 22px;
+        }
+
+        .tarjeta {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .datos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+        }
+
+        .dato strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .tabla-contenedor {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+        th {
+            background: #e9eef4;
+            white-space: nowrap;
+        }
+
+        .tipo {
+            font-weight: bold;
+        }
+
+        .volver {
+            display: inline-block;
+            margin-bottom: 18px;
+            color: #1d4ed8;
+        }
+
+        .sin-datos {
+            color: #6b7280;
+        }
+
+        .observacion {
+            min-width: 200px;
+            white-space: normal;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+<header>
+    <h1>Historial de partida</h1>
+</header>
+
+<main>
+    <a class="volver" href="/">← Volver al listado de partidas</a>
+
+    <!-- DATOS GENERALES -->
+    <section class="tarjeta">
+        <h2>Partida {{ partida[0] }}</h2>
+
+        <div class="datos">
+            <div class="dato">
+                <strong>Documento</strong>
+                {{ partida[1] or 'Sin documento' }}
+            </div>
+
+            <div class="dato">
+                <strong>Cliente</strong>
+                {{ partida[2] or 'Sin cliente' }}
+            </div>
+
+            <div class="dato">
+                <strong>Color</strong>
+                {{ partida[3] or 'Sin color' }}
+            </div>
+
+            <div class="dato">
+                <strong>Rollos</strong>
+                {{ partida[4] if partida[4] is not none else '—' }}
+            </div>
+
+            <div class="dato">
+                <strong>Kilos</strong>
+                {{ partida[5] if partida[5] is not none else '—' }}
+            </div>
+
+            <div class="dato">
+                <strong>Artículo</strong>
+                {{ partida[6] or 'Sin artículo' }}
+            </div>
+
+            <div class="dato">
+                <strong>Proceso actual</strong>
+                {{ partida[7] or 'Sin proceso' }}
+            </div>
+
+            <div class="dato">
+                <strong>Estado</strong>
+                {{ partida[8] or 'Sin estado' }}
+            </div>
+        </div>
+    </section>
+
+    <!-- HISTORIAL REGISTRADO EN LA APLICACIÓN -->
+    <section class="tarjeta">
+        <h2>Registro de procesos de la aplicación</h2>
+
+        {% if historial %}
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha de inicio</th>
+                        <th>Proceso</th>
+                        <th>Tipo</th>
+                        <th>Operario</th>
+                        <th>Máquina</th>
+                        <th>Peso</th>
+                        <th>Fecha de fin</th>
+                        <th>Motivo</th>
+                        <th>Supervisor</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for p in historial %}
+                    <tr>
+                        <td>
+                            {{ p[2].strftime('%d/%m/%Y %H:%M') if p[2] else '—' }}
+                        </td>
+                        <td>{{ p[1] or '—' }}</td>
+                        <td class="tipo">{{ p[7] or 'Normal' }}</td>
+                        <td>{{ p[4] or 'Sin asignar' }}</td>
+                        <td>{{ p[5] or 'Sin asignar' }}</td>
+                        <td>{{ p[6] if p[6] is not none else '—' }}</td>
+                        <td>
+                            {{ p[3].strftime('%d/%m/%Y %H:%M') if p[3] else '—' }}
+                        </td>
+                        <td>{{ p[8] or '—' }}</td>
+                        <td>{{ p[9] or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="sin-datos">Esta partida todavía no tiene registros de procesos en la aplicación.</p>
+        {% endif %}
+    </section>
+
+    <!-- OBSERVACIONES DE LAS ÁREAS -->
+    <section class="tarjeta">
+        <h2>Observaciones originales de las áreas</h2>
+        <p>Registros recuperados de la tabla original de Excel.</p>
+
+        {% if observaciones_areas %}
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Turno</th>
+                        <th>Área</th>
+                        <th>Máquina</th>
+                        <th>Operario</th>
+                        <th>Observación</th>
+                        <th>Fila Excel</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for o in observaciones_areas %}
+                    <tr>
+                        <td>{{ o[0][:10] if o[0] else '—' }}</td>
+                        <td>{{ o[1] or '—' }}</td>
+                        <td>{{ o[2] or '—' }}</td>
+                        <td>{{ o[3] or '—' }}</td>
+                        <td>{{ o[4] or '—' }}</td>
+                        <td class="observacion">{{ o[5] or '—' }}</td>
+                        <td>{{ o[6] if o[6] is not none else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="sin-datos">No hay observaciones registradas en las áreas para esta partida.</p>
+        {% endif %}
+    </section>
+
+    <!-- OBSERVACIONES DE TINTORERÍA -->
+    <section class="tarjeta">
+        <h2>Observaciones originales de Tintorería</h2>
+        <p>Se conservan los valores originales de Peso, incluidos los estados y textos de reproceso.</p>
+
+        {% if observaciones_tintoreria %}
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Máquina</th>
+                        <th>Operario</th>
+                        <th>Peso / estado original</th>
+                        <th>Observación</th>
+                        <th>Fila Excel</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for o in observaciones_tintoreria %}
+                    <tr>
+                        <td>{{ o[0][:10] if o[0] else '—' }}</td>
+                        <td>{{ o[1] or '—' }}</td>
+                        <td>{{ o[2] or '—' }}</td>
+                        <td>{{ o[3] if o[3] is not none else '—' }}</td>
+                        <td class="observacion">{{ o[4] or '—' }}</td>
+                        <td>{{ o[5] if o[5] is not none else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="sin-datos">No hay observaciones registradas en Tintorería para esta partida.</p>
+        {% endif %}
+    </section>
+</main>
+</body>
+</html>

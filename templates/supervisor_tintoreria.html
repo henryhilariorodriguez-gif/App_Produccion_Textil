@@ -80,10 +80,77 @@
             border-radius: 20px;
             background-color: #fff3cd;
         }
+
+        .btn-historial {
+          background-color: #2563eb;
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .btn-historial:hover {
+          background-color: #1d4ed8;
+        }
+
+        .modal {
+          display: none;
+          position: fixed;
+          z-index: 1000;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          padding: 3vh 3%;
+          box-sizing: border-box;
+        }
+
+       .modal-contenido {
+         background: white;
+         width: 100%;
+         max-width: 1200px;
+         height: 94vh;
+         margin: auto;
+         border-radius: 12px;
+         overflow: hidden;
+         display: flex;
+         flex-direction: column;
+        }
+
+        .modal-cabecera {
+           background: #1f2937;
+           color: white;
+           padding: 12px 18px;
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+        }
+
+        .modal-cabecera h2 {
+          margin: 0;
+         font-size: 18px;
+        }
+
+       .cerrar-modal {
+          background: transparent;
+          border: none;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        .modal iframe {
+          width: 100%;
+          flex: 1;
+          border: none;
+          background: white;
+        }
     </style>
 </head>
 
 <body>
+
+    {% include '_menu.html' %}
 
     <div class="encabezado">
         <h1>🧵 Supervisor de Tintorería</h1>
@@ -157,6 +224,14 @@
     <div class="estado">
         {{ partida[7] }}
     </div>
+    <div style="margin-top: 15px;">
+    <button
+        type="button"
+        class="btn-historial"
+        data-url="/historial/{{ partida[0] }}">
+        📋 Ver historial y observaciones
+    </button>
+    </div>
 
     <div class="avance">
     <h3>AVANCE</h3>
@@ -215,6 +290,29 @@
 
 
     </div>
+
+    <div id="modalHistorial" class="modal">
+    <div class="modal-contenido">
+
+        <div class="modal-cabecera">
+            <h2 id="tituloHistorial">Historial de la partida</h2>
+
+            <button
+                type="button"
+                class="cerrar-modal"
+                id="cerrarHistorial"
+                aria-label="Cerrar historial">
+                &times;
+            </button>
+        </div>
+
+        <iframe
+            id="contenidoHistorial"
+            title="Historial y observaciones de la partida">
+        </iframe>
+
+    </div>
+</div>
     <script>
 
     const buscarPartida = document.getElementById("buscarPartida");
@@ -256,6 +354,44 @@ buscarDocumento.addEventListener("input", function() {
 
     });
 
+});
+
+const modalHistorial = document.getElementById("modalHistorial");
+const contenidoHistorial = document.getElementById("contenidoHistorial");
+const tituloHistorial = document.getElementById("tituloHistorial");
+const cerrarHistorial = document.getElementById("cerrarHistorial");
+
+document.querySelectorAll(".btn-historial").forEach(function(boton) {
+    boton.addEventListener("click", function() {
+        const url = boton.dataset.url;
+        const numero = url.split("/").pop();
+
+        tituloHistorial.textContent = "Historial de la partida " + numero;
+        contenidoHistorial.src = url;
+        modalHistorial.style.display = "block";
+        document.body.style.overflow = "hidden";
+    });
+});
+
+function cerrarVentanaHistorial() {
+    modalHistorial.style.display = "none";
+    contenidoHistorial.src = "about:blank";
+    document.body.style.overflow = "";
+}
+
+cerrarHistorial.addEventListener("click", cerrarVentanaHistorial);
+
+modalHistorial.addEventListener("click", function(evento) {
+    if (evento.target === modalHistorial) {
+        cerrarVentanaHistorial();
+    }
+});
+
+document.addEventListener("keydown", function(evento) {
+    if (evento.key === "Escape" &&
+        modalHistorial.style.display === "block") {
+        cerrarVentanaHistorial();
+    }
 });
 
 </script>

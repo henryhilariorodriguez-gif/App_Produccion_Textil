@@ -143,15 +143,29 @@ function dibujar() {
     $('btnCargar').disabled = partidas.length === 0;
 }
 
-function prepararModal(conservarArticulo) {
-    const articulo = $('articulo').value;
+
+function prepararModal(conservarDatos) {
+    const datos = {};
+
+    if (conservarDatos) {
+        ['articulo', 'color', 'codcolor'].forEach(k => {
+            datos[k] = $(k).value;
+        });
+    }
+
     $('formPartida').reset();
-    if (conservarArticulo) $('articulo').value = articulo;
+
+    Object.entries(datos).forEach(([k, v]) => {
+        $(k).value = v;
+    });
+
     $('errModal').classList.add('d-none');
+
     const crexsa = esCrexsa();
     $('boxCrudo').classList.toggle('d-none', !crexsa);
     $('codigo_crudo').required = crexsa;
 }
+
 
 function nueva() {
     editando = -1;
