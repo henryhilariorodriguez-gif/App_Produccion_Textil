@@ -17,6 +17,7 @@
     <a class="menu-item" href="{{ url_for('index') }}">Partidas</a>
     <a class="menu-item" href="{{ url_for('nueva_partida') }}">Nueva partida</a>
     <a class="menu-item" href="{{ url_for('nueva_guia') }}">Ingreso por guía</a>
+    <a class="menu-item" href="{{ url_for('recuperar_partida') }}">🛠️ Recuperar partida</a>
 
     <details {{ 'open' if request.path.startswith('/area/') or request.path.startswith('/supervisor') }}>
         <summary class="menu-item">Tintorería</summary>

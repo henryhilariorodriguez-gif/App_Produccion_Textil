@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, redirect
-import pyodbc
 
+import pyodbc
+from flask import Flask, render_template, request, redirect, url_for
 app = Flask(__name__)
 
 
@@ -595,6 +595,179 @@ def nueva_guia():
     return render_template('nueva_guia.html', articulos=articulos, clientes=clientes)   
 
 # -------------------------------
+
+
+# -------------------------------
+# RECUPERAR PARTIDA
+# -------------------------------
+@app.route('/recuperar_partida', methods=['GET', 'POST'])
+def recuperar_partida():
+    numero = (
+        request.form.get('numero', '').strip()
+        if request.method == 'POST'
+        else request.args.get('numero', '').strip()
+    )
+
+    error = None
+    mensaje = None
+    partida = None
+    rutas_por_articulo = {}
+    articulos = []
+
+    try:
+        # Cargar artículos y sus procesos ordenados.
+        cursor.execute("""
+            SELECT a.Nombre, h.Proceso, h.Orden
+            FROM Articulos a
+            INNER JOIN HojaRuta h
+                ON h.Articulo = a.RutaArticulo
+            ORDER BY a.Nombre, h.Orden
+        """)
+
+        for fila in cursor.fetchall():
+            nombre_articulo, proceso, orden = fila
+            rutas_por_articulo.setdefault(nombre_articulo, []).append({
+                'proceso': proceso,
+                'orden': orden
+            })
+
+        articulos = sorted(rutas_por_articulo.keys())
+
+        # Guardar una recuperación confirmada.
+        if request.method == 'POST' and request.form.get('accion') == 'guardar':
+            articulo_nuevo = request.form.get('articulo', '').strip()
+            proceso_nuevo = request.form.get('proceso', '').strip()
+            estado_nuevo = request.form.get('estado', '').strip()
+            responsable = request.form.get('responsable', '').strip()
+            motivo = request.form.get('motivo', '').strip()
+
+            if not all([
+                numero, articulo_nuevo, proceso_nuevo,
+                estado_nuevo, responsable, motivo
+            ]):
+                error = 'Completa todos los campos antes de guardar.'
+
+            elif articulo_nuevo not in rutas_por_articulo:
+                error = 'El artículo no tiene una Hoja de Ruta válida.'
+
+            elif proceso_nuevo not in [
+                paso['proceso']
+                for paso in rutas_por_articulo[articulo_nuevo]
+            ]:
+                error = 'El proceso seleccionado no pertenece a la ruta del artículo.'
+
+            elif estado_nuevo not in ('En proceso', 'Pendiente'):
+                error = 'El estado elegido no está permitido para esta recuperación.'
+
+            else:
+                try:
+                    # Bloquear la partida durante la validación y el cambio.
+                    cursor.execute("""
+                        SELECT NumeroPartida, Articulo, ProcesoActual, Estado
+                        FROM Partidas WITH (UPDLOCK, HOLDLOCK)
+                        WHERE NumeroPartida = ?
+                    """, (numero,))
+                    actual = cursor.fetchone()
+
+                    if actual is None:
+                        raise ValueError('No se encontró la partida.')
+
+                    if actual[3] == 'Pendiente de reproceso':
+                        raise ValueError(
+                            'Esta partida tiene un reproceso pendiente. '
+                            'Resuélvelo desde la opción Reprocesar.'
+                        )
+
+                    articulo_anterior = actual[1]
+                    proceso_anterior = actual[2]
+                    estado_anterior = actual[3]
+
+                    # Crear la tabla de auditoría si aún no existe.
+                    cursor.execute("""
+                        IF OBJECT_ID(
+                            'dbo.AuditoriaRecuperacionPartidas', 'U'
+                        ) IS NULL
+                        BEGIN
+                            CREATE TABLE dbo.AuditoriaRecuperacionPartidas (
+                                AuditoriaID INT IDENTITY(1,1) PRIMARY KEY,
+                                NumeroPartida NVARCHAR(50) NOT NULL,
+                                Fecha DATETIME2 NOT NULL
+                                    DEFAULT SYSDATETIME(),
+                                Responsable NVARCHAR(150) NOT NULL,
+                                Motivo NVARCHAR(500) NOT NULL,
+                                ArticuloAnterior NVARCHAR(150) NULL,
+                                ArticuloNuevo NVARCHAR(150) NOT NULL,
+                                ProcesoAnterior NVARCHAR(150) NULL,
+                                ProcesoNuevo NVARCHAR(150) NOT NULL,
+                                EstadoAnterior NVARCHAR(80) NULL,
+                                EstadoNuevo NVARCHAR(80) NOT NULL
+                            );
+                        END
+                    """)
+
+                    cursor.execute("""
+                        UPDATE Partidas
+                        SET Articulo = ?,
+                            ProcesoActual = ?,
+                            Estado = ?
+                        WHERE NumeroPartida = ?
+                    """, (
+                        articulo_nuevo,
+                        proceso_nuevo,
+                        estado_nuevo,
+                        numero
+                    ))
+
+                    cursor.execute("""
+                        INSERT INTO dbo.AuditoriaRecuperacionPartidas (
+                            NumeroPartida, Responsable, Motivo,
+                            ArticuloAnterior, ArticuloNuevo,
+                            ProcesoAnterior, ProcesoNuevo,
+                            EstadoAnterior, EstadoNuevo
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        numero, responsable, motivo,
+                        articulo_anterior, articulo_nuevo,
+                        proceso_anterior, proceso_nuevo,
+                        estado_anterior, estado_nuevo
+                    ))
+
+                    conn.commit()
+                    return redirect(
+                        url_for('recuperar_partida', numero=numero)
+                    )
+
+                except Exception as e:
+                    conn.rollback()
+                    error = str(e)
+
+        # Mostrar los datos actuales de la partida.
+        if numero:
+            cursor.execute("""
+                SELECT NumeroPartida, NumeroDocumento, Cliente, Color,
+                       Rollos, Kilos, Articulo, ProcesoActual, Estado
+                FROM Partidas
+                WHERE NumeroPartida = ?
+            """, (numero,))
+            partida = cursor.fetchone()
+
+            if partida is None and error is None:
+                error = f'No se encontró la partida {numero}.'
+
+    except Exception as e:
+        error = f'No se pudieron consultar los datos: {e}'
+
+    return render_template(
+        'recuperar_partida.html',
+        numero=numero,
+        partida=partida,
+        articulos=articulos,
+        rutas_por_articulo=rutas_por_articulo,
+        error=error,
+        mensaje=mensaje
+    )
+
 # EDITAR PARTIDA
 # -------------------------------
 @app.route('/editar_partida/<numero>', methods=['GET', 'POST'])

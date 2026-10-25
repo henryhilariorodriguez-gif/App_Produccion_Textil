@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recuperar partida</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+</head>
+
+<body class="container-fluid mt-4">
+    {% include '_menu.html' %}
+
+    <main class="container" style="max-width: 950px;">
+        <h2 class="mb-3">🛠️ Recuperar partida</h2>
+        <p class="text-muted">
+            Corrige los datos de una partida y verifica su Hoja de Ruta antes de guardar.
+        </p>
+
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        {% if mensaje %}
+        <div class="alert alert-success">{{ mensaje }}</div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('recuperar_partida') }}">
+                    <label for="numero_busqueda" class="form-label">
+                        Número de partida
+                    </label>
+
+                    <div class="input-group">
+                        <input type="text" id="numero_busqueda" name="numero"
+                               class="form-control"
+                               value="{{ numero }}"
+                               placeholder="Ejemplo: R40075" required>
+                        <button type="submit" class="btn btn-primary">
+                            Buscar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if partida %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <strong>Datos encontrados</strong>
+            </div>
+
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <strong>Partida:</strong><br>
+                        {{ partida[0] }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Guía:</strong><br>
+                        {{ partida[1] or 'Sin guía' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Cliente:</strong><br>
+                        {{ partida[2] or 'Sin cliente' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Color:</strong><br>
+                        {{ partida[3] or 'Sin color' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Rollos:</strong><br>
+                        {{ partida[4] if partida[4] is not none else 'Sin dato' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Kilos:</strong><br>
+                        {{ partida[5] if partida[5] is not none else 'Sin dato' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Artículo actual:</strong><br>
+                        {{ partida[6] or 'SIN ARTÍCULO' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Proceso actual:</strong><br>
+                        {{ partida[7] or 'Sin proceso' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Estado actual:</strong><br>
+                        {{ partida[8] or 'Sin estado' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('recuperar_partida') }}"
+              class="card shadow-sm mb-5">
+            <div class="card-header bg-primary text-white">
+                <strong>Datos corregidos</strong>
+            </div>
+
+            <div class="card-body">
+                <input type="hidden" name="numero" value="{{ partida[0] }}">
+                <input type="hidden" name="accion" value="guardar">
+
+                <div class="mb-3">
+                    <label for="articulo" class="form-label">
+                        Artículo correcto
+                    </label>
+                    <select id="articulo" name="articulo"
+                            class="form-select" required>
+                        <option value="">Selecciona el artículo</option>
+                        {% for articulo in articulos %}
+                        <option value="{{ articulo }}"
+                            {% if articulo == partida[6] %}selected{% endif %}>
+                            {{ articulo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="proceso" class="form-label">
+                        Último proceso realizado
+                    </label>
+                    <select id="proceso" name="proceso"
+                            class="form-select" required>
+                        <option value="">Primero selecciona el artículo</option>
+                    </select>
+                    <div class="form-text">
+                        Selecciona el último proceso que realmente se realizó,
+                        no el que todavía falta hacer.
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Siguiente proceso calculado:</strong>
+                    <span id="siguiente_proceso">Selecciona artículo y proceso</span>
+                </div>
+
+                <div class="mb-3">
+                    <label for="estado" class="form-label">
+                        Estado de la partida
+                    </label>
+                    <select id="estado" name="estado" class="form-select" required>
+                        <option value="En proceso"
+                            {% if partida[8] == 'En proceso' %}selected{% endif %}>
+                            En proceso
+                        </option>
+                        <option value="Pendiente"
+                            {% if partida[8] == 'Pendiente' %}selected{% endif %}>
+                            Pendiente
+                        </option>
+                    </select>
+                    <div class="form-text">
+                        No elijas un estado hasta verificar la situación real
+                        de la partida.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="responsable" class="form-label">
+                        Responsable de la corrección
+                    </label>
+                    <input type="text" id="responsable" name="responsable"
+                           class="form-control" maxlength="150" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="motivo" class="form-label">
+                        Motivo de la recuperación
+                    </label>
+                    <textarea id="motivo" name="motivo" class="form-control"
+                              maxlength="500" rows="3" required
+                              placeholder="Explica por qué se corrigen los datos"></textarea>
+                </div>
+
+                <div class="alert alert-warning">
+                    Revisa los datos antes de guardar. Esta operación cambia
+                    el artículo, el proceso actual y el estado de la partida.
+                    No registra un nuevo proceso de producción.
+                </div>
+
+                <button type="submit" class="btn btn-success"
+                        onclick="return confirm('¿Confirmas la recuperación de esta partida? Revisa los datos antes de continuar.');">
+                    Confirmar recuperación
+                </button>
+
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+        {% endif %}
+    </main>
+
+    <script>
+        const rutas = {{ rutas_por_articulo | tojson }};
+        const articuloSelect = document.getElementById('articulo');
+        const procesoSelect = document.getElementById('proceso');
+        const siguienteTexto = document.getElementById('siguiente_proceso');
+
+        const procesoActualOriginal = {{ (partida[7] if partida else '') | tojson }};
+
+        function actualizarProcesos(procesoPreferido = '') {
+            if (!articuloSelect || !procesoSelect || !siguienteTexto) return;
+
+            const articulo = articuloSelect.value;
+            const pasos = rutas[articulo] || [];
+
+            procesoSelect.innerHTML = '';
+            const inicial = document.createElement('option');
+            inicial.value = '';
+            inicial.textContent = pasos.length
+                ? 'Selecciona el último proceso realizado'
+                : 'Este artículo no tiene una ruta disponible';
+            procesoSelect.appendChild(inicial);
+
+            pasos.forEach(paso => {
+                const opcion = document.createElement('option');
+                opcion.value = paso.proceso;
+                opcion.textContent = paso.proceso;
+                if (paso.proceso === procesoPreferido) {
+                    opcion.selected = true;
+                }
+                procesoSelect.appendChild(opcion);
+            });
+
+            actualizarSiguiente();
+        }
+
+        function actualizarSiguiente() {
+            const pasos = rutas[articuloSelect.value] || [];
+            const indice = pasos.findIndex(
+                paso => paso.proceso === procesoSelect.value
+            );
+
+            if (indice === -1) {
+                siguienteTexto.textContent = 'Selecciona el último proceso realizado';
+            } else if (indice === pasos.length - 1) {
+                siguienteTexto.textContent =
+                    'No hay otro proceso: se alcanzó el final de la ruta';
+            } else {
+                siguienteTexto.textContent = pasos[indice + 1].proceso;
+            }
+        }
+
+        if (articuloSelect) {
+            articuloSelect.addEventListener('change', () => {
+                actualizarProcesos('');
+            });
+
+            procesoSelect.addEventListener('change', actualizarSiguiente);
+
+            actualizarProcesos(procesoActualOriginal);
+        }
+    </script>
+</body>
+</html>
