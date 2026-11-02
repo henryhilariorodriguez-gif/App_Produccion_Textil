@@ -1,0 +1,10 @@
+
+services:
+  app:
+    build: .
+    container_name: app_produccion_textil
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    restart: unless-stopped

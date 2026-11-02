@@ -1,18 +1,35 @@
 
+import os
 import pyodbc
 from flask import Flask, render_template, request, redirect, url_for
+
 app = Flask(__name__)
 
 
 # -------------------------------
 # CONEXIÓN A SQL SERVER
 # -------------------------------
-conn = pyodbc.connect(
-    'DRIVER={ODBC Driver 17 for SQL Server};'
-    'SERVER=localhost\\SQLEXPRESS;'
-    'DATABASE=ProduccionTextil;'
-    'Trusted_Connection=yes;'
-)
+
+if os.getenv('DB_USER'):
+    # Conexión desde Docker
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        f'SERVER={os.getenv("DB_SERVER")};'
+        f'DATABASE={os.getenv("DB_NAME", "ProduccionTextil")};'
+        f'UID={os.getenv("DB_USER")};'
+        f'PWD={os.getenv("DB_PASSWORD")};'
+        'Encrypt=yes;'
+        'TrustServerCertificate=yes;'
+    )
+else:
+    # Conexión normal desde Windows
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=localhost\\SQLEXPRESS;'
+        'DATABASE=ProduccionTextil;'
+        'Trusted_Connection=yes;'
+    )
+
 cursor = conn.cursor()
 
 # Áreas del menú (cada una agrupa uno o más procesos de la Hoja de Ruta)
@@ -936,15 +953,80 @@ def historial_partida(numero):
     """, (numero,))
 
     observaciones_tintoreria = cursor.fetchall()
+    
 
+    # NUEVAS OBSERVACIONES REGISTRADAS POR LOS SUPERVISORES
+    cursor.execute("""
+        SELECT
+            ObservacionID,
+            FechaRegistro,
+            Area,
+            TipoObservacion,
+            Observacion,
+            Supervisor,
+            Estado
+        FROM dbo.ObservacionesPartida
+        WHERE NumeroPartida = ?
+        ORDER BY FechaRegistro DESC
+    """, (numero,))
 
+    observaciones_supervisor = cursor.fetchall()
+    
     return render_template(
         'historial_partida.html',
         partida=partida,
         historial=historial,
         observaciones_areas=observaciones_areas,
-        observaciones_tintoreria=observaciones_tintoreria
+        observaciones_tintoreria=observaciones_tintoreria,
+        observaciones_supervisor=observaciones_supervisor
     )
+   
+
+# -------------------------------
+# GUARDAR OBSERVACIONES DE SUPERVISORES
+# -------------------------------
+@app.route('/observaciones/guardar', methods=['POST'])
+def guardar_observacion():
+
+    numero = request.form.get('numero_partida', '').strip()
+    area = request.form.get('area', '').strip()
+    tipo = request.form.get('tipo_observacion', '').strip()
+    observacion = request.form.get('observacion', '').strip()
+    supervisor = request.form.get('supervisor', '').strip()
+
+    # Validar que todos los campos estén completos
+    if not all([numero, area, tipo, observacion, supervisor]):
+        return "Completa todos los campos de la observación.", 400
+
+    # Comprobar que la partida exista
+    cursor.execute("""
+        SELECT NumeroPartida
+        FROM Partidas
+        WHERE NumeroPartida = ?
+    """, (numero,))
+
+    if cursor.fetchone() is None:
+        return "La partida indicada no existe.", 404
+
+    try:
+        cursor.execute("""
+            INSERT INTO dbo.ObservacionesPartida (
+                NumeroPartida,
+                Area,
+                TipoObservacion,
+                Observacion,
+                Supervisor
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (numero, area, tipo, observacion, supervisor))
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    return redirect(url_for('historial_partida', numero=numero))
    
 
 @app.route('/procesos')

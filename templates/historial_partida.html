@@ -31,6 +31,7 @@
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
         }
 
         .datos {
@@ -87,6 +88,87 @@
 
         h2 {
             margin-top: 0;
+        }
+
+        .formulario {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .campo {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .campo label {
+            font-weight: bold;
+        }
+
+        .campo input,
+        .campo select,
+        .campo textarea {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+        }
+
+        .campo textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .campo-completo {
+            grid-column: 1 / -1;
+        }
+
+        .boton-guardar {
+            background: #166534;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .boton-guardar:hover {
+            background: #14532d;
+        }
+
+        .estado-pendiente {
+            color: #92400e;
+            font-weight: bold;
+        }
+
+        .estado-atendido {
+            color: #166534;
+            font-weight: bold;
+        }
+
+        .ayuda {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            main {
+                padding: 12px;
+            }
+
+            .tarjeta {
+                padding: 14px;
+            }
+
+            header {
+                padding: 16px;
+            }
         }
     </style>
 </head>
@@ -146,6 +228,133 @@
         </div>
     </section>
 
+    <!-- NUEVA OBSERVACIÓN DEL SUPERVISOR -->
+    <section class="tarjeta">
+        <h2>Registrar observación de calidad o producción</h2>
+
+        <p class="ayuda">
+            Registra problemas que deban conocer los supervisores
+            o el siguiente proceso. La observación quedará vinculada
+            a esta partida.
+        </p>
+
+        <form action="{{ url_for('guardar_observacion') }}"
+              method="POST">
+
+            <input type="hidden"
+                   name="numero_partida"
+                   value="{{ partida[0] }}">
+
+            <div class="formulario">
+
+                <div class="campo">
+                    <label for="area">Área que registra</label>
+                    <select id="area" name="area" required>
+                        <option value="">Selecciona un área</option>
+                        <option value="Recepción">Recepción</option>
+                        <option value="Preparado">Preparado</option>
+                        <option value="Teñido">Teñido / Tintorería</option>
+                        <option value="Termofijado">Termofijado</option>
+                        <option value="Hidrocentrifugado">Hidrocentrifugado</option>
+                        <option value="Secado">Secado</option>
+                        <option value="Volteados">Volteados</option>
+                        <option value="Perchado">Perchado</option>
+                        <option value="Compactado">Compactado</option>
+                        <option value="Embolsado">Embolsado</option>
+                        <option value="Pesado">Pesado</option>
+                        <option value="Despacho">Despacho</option>
+                        <option value="Calidad">Calidad</option>
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="tipo_observacion">Tipo de problema</label>
+                    <select id="tipo_observacion"
+                            name="tipo_observacion"
+                            required>
+                        <option value="">Selecciona el tipo</option>
+                        <option value="Fuera de tono">Fuera de tono</option>
+                        <option value="Doble pase">Doble pase</option>
+                        <option value="Defecto de tela">Defecto de tela</option>
+                        <option value="Mancha">Mancha</option>
+                        <option value="Reproceso">Reproceso</option>
+                        <option value="Peso incorrecto">Peso incorrecto</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="campo">
+                    <label for="supervisor">Nombre del supervisor</label>
+                    <input type="text"
+                           id="supervisor"
+                           name="supervisor"
+                           maxlength="150"
+                           placeholder="Escribe tu nombre"
+                           required>
+                </div>
+
+                <div class="campo campo-completo">
+                    <label for="observacion">Detalle de la observación</label>
+                    <textarea id="observacion"
+                              name="observacion"
+                              maxlength="1000"
+                              placeholder="Describe el problema y qué debe saber el siguiente proceso..."
+                              required></textarea>
+                </div>
+
+                <div class="campo campo-completo">
+                    <button type="submit" class="boton-guardar">
+                        Guardar observación
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </section>
+
+    <!-- NUEVAS OBSERVACIONES REGISTRADAS -->
+    <section class="tarjeta">
+        <h2>Observaciones registradas por los supervisores</h2>
+
+        {% if observaciones_supervisor %}
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha de registro</th>
+                        <th>Área</th>
+                        <th>Tipo de problema</th>
+                        <th>Detalle</th>
+                        <th>Supervisor</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for o in observaciones_supervisor %}
+                    <tr>
+                        <td>
+                            {{ o[1].strftime('%d/%m/%Y %H:%M') if o[1] else '—' }}
+                        </td>
+                        <td>{{ o[2] or '—' }}</td>
+                        <td class="tipo">{{ o[3] or '—' }}</td>
+                        <td class="observacion">{{ o[4] or '—' }}</td>
+                        <td>{{ o[5] or '—' }}</td>
+                        <td class="{{ 'estado-atendido' if o[6] == 'Atendida' else 'estado-pendiente' }}">
+                            {{ o[6] or 'Pendiente' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="sin-datos">
+                Todavía no hay observaciones nuevas para esta partida.
+            </p>
+        {% endif %}
+    </section>
+
     <!-- HISTORIAL REGISTRADO EN LA APLICACIÓN -->
     <section class="tarjeta">
         <h2>Registro de procesos de la aplicación</h2>
@@ -170,17 +379,13 @@
                 <tbody>
                     {% for p in historial %}
                     <tr>
-                        <td>
-                            {{ p[2].strftime('%d/%m/%Y %H:%M') if p[2] else '—' }}
-                        </td>
+                        <td>{{ p[2].strftime('%d/%m/%Y %H:%M') if p[2] else '—' }}</td>
                         <td>{{ p[1] or '—' }}</td>
                         <td class="tipo">{{ p[7] or 'Normal' }}</td>
                         <td>{{ p[4] or 'Sin asignar' }}</td>
                         <td>{{ p[5] or 'Sin asignar' }}</td>
                         <td>{{ p[6] if p[6] is not none else '—' }}</td>
-                        <td>
-                            {{ p[3].strftime('%d/%m/%Y %H:%M') if p[3] else '—' }}
-                        </td>
+                        <td>{{ p[3].strftime('%d/%m/%Y %H:%M') if p[3] else '—' }}</td>
                         <td>{{ p[8] or '—' }}</td>
                         <td>{{ p[9] or '—' }}</td>
                     </tr>
@@ -189,11 +394,13 @@
             </table>
         </div>
         {% else %}
-            <p class="sin-datos">Esta partida todavía no tiene registros de procesos en la aplicación.</p>
+            <p class="sin-datos">
+                Esta partida todavía no tiene registros de procesos en la aplicación.
+            </p>
         {% endif %}
     </section>
 
-    <!-- OBSERVACIONES DE LAS ÁREAS -->
+    <!-- OBSERVACIONES ORIGINALES DE LAS ÁREAS -->
     <section class="tarjeta">
         <h2>Observaciones originales de las áreas</h2>
         <p>Registros recuperados de la tabla original de Excel.</p>
@@ -229,14 +436,19 @@
             </table>
         </div>
         {% else %}
-            <p class="sin-datos">No hay observaciones registradas en las áreas para esta partida.</p>
+            <p class="sin-datos">
+                No hay observaciones registradas en las áreas para esta partida.
+            </p>
         {% endif %}
     </section>
 
-    <!-- OBSERVACIONES DE TINTORERÍA -->
+    <!-- OBSERVACIONES ORIGINALES DE TINTORERÍA -->
     <section class="tarjeta">
         <h2>Observaciones originales de Tintorería</h2>
-        <p>Se conservan los valores originales de Peso, incluidos los estados y textos de reproceso.</p>
+        <p>
+            Se conservan los valores originales de Peso,
+            incluidos los estados y textos de reproceso.
+        </p>
 
         {% if observaciones_tintoreria %}
         <div class="tabla-contenedor">
@@ -267,9 +479,12 @@
             </table>
         </div>
         {% else %}
-            <p class="sin-datos">No hay observaciones registradas en Tintorería para esta partida.</p>
+            <p class="sin-datos">
+                No hay observaciones registradas en Tintorería para esta partida.
+            </p>
         {% endif %}
     </section>
+
 </main>
 </body>
 </html>

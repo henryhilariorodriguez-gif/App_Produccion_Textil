@@ -1,0 +1,13 @@
+# Contraseñas y configuración privada
+.env
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+
+# Entornos virtuales
+venv/
+.venv/
+
+# Respaldos locales
+*.respaldo_docker
