@@ -311,8 +311,8 @@
             </div>
         </form>
     </section>
-
-    <!-- NUEVAS OBSERVACIONES REGISTRADAS -->
+    
+    <!-- OBSERVACIONES REGISTRADAS POR LOS SUPERVISORES -->
     <section class="tarjeta">
         <h2>Observaciones registradas por los supervisores</h2>
 
@@ -325,8 +325,8 @@
                         <th>Área</th>
                         <th>Tipo de problema</th>
                         <th>Detalle</th>
-                        <th>Supervisor</th>
-                        <th>Estado</th>
+                        <th>Supervisor que registra</th>
+                        <th>Estado y atención</th>
                     </tr>
                 </thead>
 
@@ -336,24 +336,94 @@
                         <td>
                             {{ o[1].strftime('%d/%m/%Y %H:%M') if o[1] else '—' }}
                         </td>
+
                         <td>{{ o[2] or '—' }}</td>
+
                         <td class="tipo">{{ o[3] or '—' }}</td>
+
                         <td class="observacion">{{ o[4] or '—' }}</td>
+
                         <td>{{ o[5] or '—' }}</td>
-                        <td class="{{ 'estado-atendido' if o[6] == 'Atendida' else 'estado-pendiente' }}">
-                            {{ o[6] or 'Pendiente' }}
+
+                        <td>
+                            {% if o[6] == 'Atendida' %}
+
+                                <span class="estado-atendido">
+                                    ✓ Atendida
+                                </span>
+
+                                <p>
+                                    <strong>Atendió:</strong>
+                                    {{ o[7] or '—' }}
+                                </p>
+
+                                <p>
+                                    <strong>Fecha:</strong>
+                                    {{ o[8].strftime('%d/%m/%Y %H:%M') if o[8] else '—' }}
+                                </p>
+
+                            {% else %}
+
+                                <span class="estado-pendiente">
+                                    ● Pendiente
+                                </span>
+
+                                <form
+                                    action="{{ url_for('atender_observacion', observacion_id=o[0]) }}"
+                                    method="POST"
+                                    style="margin-top: 12px; min-width: 180px;"
+                                >
+                                    <label for="supervisor_{{ o[0] }}">
+                                        <strong>Atendida por:</strong>
+                                    </label>
+
+                                    <select
+                                        id="supervisor_{{ o[0] }}"
+                                        name="supervisor_atiende"
+                                        required
+                                        style="width: 100%; padding: 9px; margin: 7px 0;"
+                                    >
+                                        <option value="">Seleccionar supervisor</option>
+
+                                        {% if o[2] == 'Calidad' %}
+                                            <option value="Tito Valencia">Tito Valencia</option>
+                                            <option value="Jose">Jose</option>
+
+                                        {% elif o[2] in ['Teñido', 'Tintorería'] %}
+                                            <option value="Santos Chuna">Santos Chuna</option>
+                                            <option value="Carlos Valenzuela">Carlos Valenzuela</option>
+                                        {% endif %}
+                                    </select>
+
+                                    {% if o[2] in ['Calidad', 'Teñido', 'Tintorería'] %}
+                                        <button
+                                            type="submit"
+                                            class="boton-guardar"
+                                        >
+                                            Marcar como atendida
+                                        </button>
+                                    {% else %}
+                                        <p class="ayuda">
+                                            No hay supervisores asignados para esta área.
+                                        </p>
+                                    {% endif %}
+                                </form>
+
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
         {% else %}
             <p class="sin-datos">
                 Todavía no hay observaciones nuevas para esta partida.
             </p>
         {% endif %}
     </section>
+
 
     <!-- HISTORIAL REGISTRADO EN LA APLICACIÓN -->
     <section class="tarjeta">

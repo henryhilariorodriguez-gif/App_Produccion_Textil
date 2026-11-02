@@ -126,13 +126,15 @@
 
     <a class="menu-item" href="{{ url_for('index') }}">Partidas</a>
 
+    {% if es_administrador %}
     <a class="menu-item" href="{{ url_for('nueva_guia') }}">
-        Ingreso por guía
+    Ingreso por guía
     </a>
 
     <a class="menu-item" href="{{ url_for('recuperar_partida') }}">
-        🛠️ Recuperar partida
+    🛠️ Recuperar partida
     </a>
+    {% endif %}
 
     <details {% if request.path.startswith('/area/') or request.path.startswith('/supervisor') %}open{% endif %}>
         <summary class="menu-item">Tintorería</summary>
@@ -148,31 +150,43 @@
             {{ nombre }}
         </a>
         {% endfor %}
-    </details>
+     </details>
 
-    <details {% if request.path.startswith('/admin') %}open{% endif %}>
-        <summary class="menu-item">Administración</summary>
+     {% if es_administrador %}
+     <details {% if request.path.startswith('/admin') %}open{% endif %}>
+       <summary class="menu-item">Administración</summary>
 
-        <a class="menu-item menu-sub"
+       <a class="menu-item menu-sub"
            href="{{ url_for('admin_catalogo', cat='articulos') }}">
             Artículos
-        </a>
+       </a>
 
-        <a class="menu-item menu-sub"
-           href="{{ url_for('admin_catalogo', cat='colores') }}">
+       <a class="menu-item menu-sub"
+          href="{{ url_for('admin_catalogo', cat='colores') }}">
             Colores
-        </a>
+       </a>
 
-        <a class="menu-item menu-sub"
-           href="{{ url_for('admin_catalogo', cat='operarios') }}">
-            Operarios
-        </a>
+       <a class="menu-item menu-sub"
+       href="{{ url_for('admin_catalogo', cat='operarios') }}">
+        Operarios
+       </a>
 
-        <a class="menu-item menu-sub"
-           href="{{ url_for('admin_catalogo', cat='maquinas') }}">
-            Máquinas
-        </a>
-    </details>
+      <a class="menu-item menu-sub"
+       href="{{ url_for('admin_catalogo', cat='maquinas') }}">
+        Máquinas
+      </a>
+   </details>
+   {% endif %}
+
+    {% if es_administrador %}
+    <a class="menu-item" href="{{ url_for('cerrar_administrador') }}">
+        🔒 Cerrar administrador
+    </a>
+    {% else %}
+    <a class="menu-item" href="{{ url_for('login_admin') }}">
+    🔑 Acceso administrador
+    </a>
+    {% endif %}
 </nav>
 
 <script>

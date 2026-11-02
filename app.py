@@ -1,9 +1,70 @@
 
 import os
 import pyodbc
-from flask import Flask, render_template, request, redirect, url_for
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, session, flash
+)
+from functools import wraps
 
 app = Flask(__name__)
+
+# -------------------------------
+# CONFIGURACIÓN DE SESIONES
+# -------------------------------
+app.secret_key = os.environ.get('SECRET_KEY')
+
+if not app.secret_key:
+    raise RuntimeError("Falta configurar SECRET_KEY.")
+
+# -------------------------------
+# CONTROL DE ACCESO
+# -------------------------------
+
+def administrador_requerido(func):
+    @wraps(func)
+    def decorada(*args, **kwargs):
+        if session.get('rol') != 'administrador':
+            return redirect(url_for('login_admin'))
+        return func(*args, **kwargs)
+    return decorada
+
+
+@app.route('/administrador', methods=['GET', 'POST'])
+def login_admin():
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+
+        clave_admin = os.environ.get('ADMIN_PASSWORD')
+
+        if not clave_admin:
+            return "Falta configurar ADMIN_PASSWORD.", 500
+
+        if password == clave_admin:
+            session.clear()
+            session['rol'] = 'administrador'
+            return redirect(url_for('inicio'))
+
+        return render_template(
+            'login_admin.html',
+            error='Contraseña incorrecta.'
+        )
+
+    return render_template('login_admin.html')
+
+
+@app.route('/cerrar_administrador')
+def cerrar_administrador():
+    session.clear()
+    return redirect(url_for('inicio'))
+
+
+@app.context_processor
+def datos_sesion():
+    return {
+        'es_administrador': session.get('rol') == 'administrador'
+    }
 
 
 # -------------------------------
@@ -473,6 +534,7 @@ def reprocesar(numero):
 # REGISTRAR NUEVA PARTIDA
 # -------------------------------
 @app.route('/nueva_partida', methods=['GET', 'POST'])
+@administrador_requerido
 def nueva_partida():
     if request.method == 'POST':
         documento = request.form['documento']
@@ -527,6 +589,7 @@ def nueva_partida():
 # INGRESO POR GUÍA
 # -------------------------------
 @app.route('/nueva_guia', methods=['GET', 'POST'])
+@administrador_requerido
 def nueva_guia():
 
     if request.method == 'POST':
@@ -618,6 +681,7 @@ def nueva_guia():
 # RECUPERAR PARTIDA
 # -------------------------------
 @app.route('/recuperar_partida', methods=['GET', 'POST'])
+@administrador_requerido
 def recuperar_partida():
     numero = (
         request.form.get('numero', '').strip()
@@ -788,6 +852,7 @@ def recuperar_partida():
 # EDITAR PARTIDA
 # -------------------------------
 @app.route('/editar_partida/<numero>', methods=['GET', 'POST'])
+@administrador_requerido
 def editar_partida(numero):
     if request.method == 'POST':
         cliente = request.form['cliente']
@@ -817,6 +882,7 @@ def editar_partida(numero):
 # ELIMINAR PARTIDA
 # -------------------------------
 @app.route('/eliminar_partida/<numero>')
+@administrador_requerido
 def eliminar_partida(numero):
     cursor.execute("DELETE FROM Partidas WHERE NumeroPartida=?", (numero,))
     conn.commit()
@@ -956,19 +1022,22 @@ def historial_partida(numero):
     
 
     # NUEVAS OBSERVACIONES REGISTRADAS POR LOS SUPERVISORES
+    # OBSERVACIONES REGISTRADAS POR LOS SUPERVISORES
     cursor.execute("""
-        SELECT
-            ObservacionID,
-            FechaRegistro,
-            Area,
-            TipoObservacion,
-            Observacion,
-            Supervisor,
-            Estado
-        FROM dbo.ObservacionesPartida
-        WHERE NumeroPartida = ?
-        ORDER BY FechaRegistro DESC
-    """, (numero,))
+    SELECT
+        ObservacionID,
+        FechaRegistro,
+        Area,
+        TipoObservacion,
+        Observacion,
+        Supervisor,
+        Estado,
+        SupervisorAtiende,
+        FechaAtencion
+    FROM dbo.ObservacionesPartida
+    WHERE NumeroPartida = ?
+    ORDER BY FechaRegistro DESC
+""", (numero,))
 
     observaciones_supervisor = cursor.fetchall()
     
@@ -980,11 +1049,88 @@ def historial_partida(numero):
         observaciones_tintoreria=observaciones_tintoreria,
         observaciones_supervisor=observaciones_supervisor
     )
-   
+
+@app.route('/observaciones/atender/<int:observacion_id>', methods=['POST'])
+def atender_observacion(observacion_id):
+
+    supervisor = request.form.get('supervisor_atiende', '').strip()
+
+    if not supervisor:
+        return "Debes indicar quién atendió la observación.", 400
+
+    cursor.execute("""
+        SELECT NumeroPartida, Area, Estado
+        FROM dbo.ObservacionesPartida
+        WHERE ObservacionID = ?
+    """, (observacion_id,))
+
+    observacion = cursor.fetchone()
+
+    if observacion is None:
+        return "Observación no encontrada.", 404
+
+    numero = observacion[0]
+    area = observacion[1]
+    estado = observacion[2]
+    supervisores_por_area = {
+    'Calidad': ['Tito Valencia', 'Jose'],
+    'Teñido': ['Santos Chuna', 'Carlos Valenzuela'],
+    'Tintorería': ['Santos Chuna', 'Carlos Valenzuela']
+}
+
+    if supervisor not in supervisores_por_area.get(area, []):
+     return "El supervisor seleccionado no corresponde al área.", 400
+
+    if estado == 'Atendida':
+        return redirect(url_for('historial_partida', numero=numero))
+
+    if estado != 'Pendiente':
+        return "El estado de esta observación no permite atenderla.", 400
+
+    try:
+        cursor.execute("""
+            UPDATE dbo.ObservacionesPartida
+            SET
+                Estado = 'Atendida',
+                SupervisorAtiende = ?,
+                FechaAtencion = SYSDATETIME()
+            WHERE ObservacionID = ?
+              AND Estado = 'Pendiente'
+        """, (supervisor, observacion_id))
+
+        cursor.execute("""
+            INSERT INTO dbo.AuditoriaAplicacion (
+                Usuario,
+                TipoAccion,
+                Modulo,
+                NumeroPartida,
+                Descripcion,
+                ValorAnterior,
+                ValorNuevo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            supervisor,
+            'OBSERVACION_ATENDIDA',
+            area,
+            numero,
+            'Observación marcada como atendida',
+            'Pendiente',
+            'Atendida'
+        ))
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    return redirect(url_for('historial_partida', numero=numero))  
 
 # -------------------------------
 # GUARDAR OBSERVACIONES DE SUPERVISORES
 # -------------------------------
+
 @app.route('/observaciones/guardar', methods=['POST'])
 def guardar_observacion():
 
@@ -1009,6 +1155,7 @@ def guardar_observacion():
         return "La partida indicada no existe.", 404
 
     try:
+        # Guardar la observación en su tabla original
         cursor.execute("""
             INSERT INTO dbo.ObservacionesPartida (
                 NumeroPartida,
@@ -1020,6 +1167,27 @@ def guardar_observacion():
             VALUES (?, ?, ?, ?, ?)
         """, (numero, area, tipo, observacion, supervisor))
 
+        # Registrar también la acción en la auditoría
+        cursor.execute("""
+            INSERT INTO dbo.AuditoriaAplicacion (
+                Usuario,
+                TipoAccion,
+                Modulo,
+                NumeroPartida,
+                Descripcion,
+                ValorNuevo
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            supervisor,
+            'OBSERVACION',
+            area,
+            numero,
+            tipo,
+            observacion
+        ))
+
+        # Confirmar ambos registros
         conn.commit()
 
     except Exception:
@@ -1090,6 +1258,7 @@ def columnas_catalogo(conf):
 
 
 @app.route('/admin/<cat>')
+@administrador_requerido
 def admin_catalogo(cat):
     conf = CATALOGOS.get(cat)
     if conf is None:
@@ -1111,6 +1280,7 @@ def admin_catalogo(cat):
 
 
 @app.route('/admin/<cat>/guardar', methods=['POST'])
+@administrador_requerido
 def admin_guardar(cat):
     conf = CATALOGOS.get(cat)
     if conf is None:
@@ -1170,6 +1340,7 @@ def admin_guardar(cat):
 
 
 @app.route('/admin/<cat>/estado', methods=['POST'])
+@administrador_requerido
 def admin_estado(cat):
     conf = CATALOGOS.get(cat)
     if conf is None or not conf['tiene_activo']:
