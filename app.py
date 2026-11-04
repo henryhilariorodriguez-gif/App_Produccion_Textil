@@ -71,27 +71,54 @@ def datos_sesion():
 # CONEXIÓN A SQL SERVER
 # -------------------------------
 
-if os.getenv('DB_USER'):
-    # Conexión desde Docker
-    conn = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        f'SERVER={os.getenv("DB_SERVER")};'
-        f'DATABASE={os.getenv("DB_NAME", "ProduccionTextil")};'
-        f'UID={os.getenv("DB_USER")};'
-        f'PWD={os.getenv("DB_PASSWORD")};'
-        'Encrypt=yes;'
-        'TrustServerCertificate=yes;'
-    )
-else:
+from flask import g
+from werkzeug.local import LocalProxy
+
+def crear_conexion():
+    if os.getenv('DB_USER'):
+        # Conexión desde Docker
+        return pyodbc.connect(
+            'DRIVER={ODBC Driver 17 for SQL Server};'
+            f'SERVER={os.getenv("DB_SERVER")};'
+            f'DATABASE={os.getenv("DB_NAME", "ProduccionTextil")};'
+            f'UID={os.getenv("DB_USER")};'
+            f'PWD={os.getenv("DB_PASSWORD")};'
+            'Encrypt=yes;'
+            'TrustServerCertificate=yes;'
+        )
     # Conexión normal desde Windows
-    conn = pyodbc.connect(
+    return pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};'
         'SERVER=localhost\\SQLEXPRESS;'
         'DATABASE=ProduccionTextil;'
         'Trusted_Connection=yes;'
     )
 
-cursor = conn.cursor()
+def get_conn():
+    if 'conn' not in g:
+        g.conn = crear_conexion()
+    return g.conn
+
+def get_cursor():
+    if 'cursor' not in g:
+        g.cursor = get_conn().cursor()
+    return g.cursor
+
+# El resto del código sigue usando "conn" y "cursor" sin cambios,
+# pero ahora cada petición recibe su propia conexión.
+conn = LocalProxy(get_conn)
+cursor = LocalProxy(get_cursor)
+
+@app.teardown_appcontext
+def cerrar_conexion(error):
+    cur = g.pop('cursor', None)
+    if cur is not None:
+        cur.close()
+    cn = g.pop('conn', None)
+    if cn is not None:
+        if error:
+            cn.rollback()
+        cn.close()
 
 # Áreas del menú (cada una agrupa uno o más procesos de la Hoja de Ruta)
 AREAS = {
@@ -881,7 +908,7 @@ def editar_partida(numero):
 # -------------------------------
 # ELIMINAR PARTIDA
 # -------------------------------
-@app.route('/eliminar_partida/<numero>')
+@app.route('/eliminar_partida/<numero>', methods=['POST'])
 @administrador_requerido
 def eliminar_partida(numero):
     cursor.execute("DELETE FROM Partidas WHERE NumeroPartida=?", (numero,))

@@ -50,12 +50,18 @@
                 </td>
                 <td>{{ partida.Estado }}</td>
                 <td>
-                    <a href="/editar_partida/{{ partida.NumeroPartida }}" class="btn btn-sm btn-warning">Editar</a>
-                    <a href="/avanzar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-success">▶️ Avanzar</a>
-                    <a href="/reprocesar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-info">🔄 Reprocesar</a>
-                    <a href="/eliminar_partida/{{ partida.NumeroPartida }}" class="btn btn-sm btn-danger"
-                             onclick="return confirm('¿Seguro que deseas eliminar esta partida?');">Eliminar
-                            </a>
+                   {% if es_administrador %}
+                      <a href="/editar_partida/{{ partida.NumeroPartida }}" class="btn btn-sm btn-warning">Editar</a>
+                   {% endif %}
+                   <a href="/avanzar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-success">▶️ Avanzar</a>
+                   <a href="/reprocesar/{{ partida.NumeroPartida }}" class="btn btn-sm btn-info">🔄 Reprocesar</a>
+                    {% if es_administrador %}
+                       <form method="post" action="/eliminar_partida/{{ partida.NumeroPartida }}"
+                             class="d-inline"
+                             onsubmit="return confirm('¿Seguro que deseas eliminar esta partida?');">
+                           <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                        </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

@@ -19,11 +19,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar las librerías de Python necesarias
-RUN pip install --no-cache-dir Flask==3.1.1 pyodbc==5.3.0
+RUN pip install --no-cache-dir Flask==3.1.1 pyodbc==5.3.0 gunicorn
 
 # Copiar la aplicación
 COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "-c", "from app import app; app.run(host='0.0.0.0', port=5000, debug=False)"]
+CMD ["gunicorn", "-w", "2", "--threads", "4", "-b", "0.0.0.0:5000", "app:app"]
