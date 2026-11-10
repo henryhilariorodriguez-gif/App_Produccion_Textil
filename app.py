@@ -160,6 +160,8 @@ SQL_PARTIDAS = """
         ) AS SiguienteProceso
     FROM Partidas p
 """
+LIMITE_LISTADO = 200
+LIMITE_SUPERVISOR = 100
 
 # -------------------------------
 # INICIO
@@ -188,7 +190,13 @@ def area(nombre):
     if procesos is None:
         return "Área no encontrada."
     marcadores = ','.join('?' * len(procesos))
-    cursor.execute(SQL_PARTIDAS + f" WHERE p.ProcesoActual IN ({marcadores})", tuple(procesos))
+    extra = "" if nombre == 'Despacho' else " AND ISNULL(p.Estado, '') <> 'Finalizada'"
+    cursor.execute(
+        SQL_PARTIDAS
+        + f" WHERE p.ProcesoActual IN ({marcadores}){extra}"
+        + f" ORDER BY p.NumeroPartida OFFSET 0 ROWS FETCH NEXT {LIMITE_LISTADO} ROWS ONLY",
+        tuple(procesos)
+    )
     partidas = cursor.fetchall()
     return render_template('index.html', partidas=partidas, titulo=nombre)
 
@@ -197,38 +205,38 @@ def area(nombre):
 # -------------------------------
 @app.route('/')
 def index():
+    q = request.args.get('q', '').strip()
+    ver = request.args.get('ver', 'activas')
+    if ver not in ('activas', 'todas'):
+        ver = 'activas'
 
-    cursor.execute("""
-        SELECT
-            p.NumeroPartida,
-            p.Cliente,
-            p.Color,
-            p.Rollos,
-            p.Kilos,
-            p.ProcesoActual,
-            p.Estado,
-            p.Articulo,
-            p.CodigoCrudo,
-            (
-                SELECT TOP 1 h2.Proceso
-                FROM Articulos a
-                INNER JOIN HojaRuta h2
-                    ON h2.Articulo = a.RutaArticulo
-                WHERE a.Nombre = p.Articulo
-                  AND h2.Orden > (
-                      SELECT h1.Orden
-                      FROM HojaRuta h1
-                      WHERE h1.Articulo = a.RutaArticulo
-                        AND h1.Proceso = p.ProcesoActual
-                  )
-                ORDER BY h2.Orden
-            ) AS SiguienteProceso
-        FROM Partidas p
-    """)
+    condiciones = []
+    params = []
 
+    if ver == 'activas':
+        condiciones.append("ISNULL(p.Estado, '') <> 'Finalizada'")
+
+    if q:
+        condiciones.append(
+            "(p.NumeroPartida LIKE ? OR p.Cliente LIKE ? OR p.Color LIKE ? "
+            "OR p.Articulo LIKE ? OR p.CodigoCrudo LIKE ?)"
+        )
+        params.extend([f'%{q}%'] * 5)
+
+    where = (' WHERE ' + ' AND '.join(condiciones)) if condiciones else ''
+
+    cursor.execute("SELECT COUNT(*) FROM Partidas p" + where, tuple(params))
+    total = cursor.fetchone()[0]
+
+    cursor.execute(
+        SQL_PARTIDAS + where
+        + f" ORDER BY p.NumeroPartida OFFSET 0 ROWS FETCH NEXT {LIMITE_LISTADO} ROWS ONLY",
+        tuple(params)
+    )
     partidas = cursor.fetchall()
 
-    return render_template('index.html', partidas=partidas)
+    return render_template('index.html', partidas=partidas,
+                           q=q, ver=ver, total=total, limite=LIMITE_LISTADO)
 
 #--------------------------------
 #REGISTRA EL SIGUIENTE PROCESO
@@ -915,48 +923,70 @@ def eliminar_partida(numero):
     conn.commit()
     return redirect('/')
 
+
 @app.route('/supervisor_tintoreria')
 def supervisor_tintoreria():
+    q = request.args.get('q', '').strip()
+    doc = request.args.get('doc', '').strip()
+
+    condiciones = []
+    params = []
+
+    if q:
+        condiciones.append("p.NumeroPartida LIKE ?")
+        params.append(f'%{q}%')
+    if doc:
+        condiciones.append("p.NumeroDocumento LIKE ?")
+        params.append(f'%{doc}%')
+
+    # Sin búsqueda: solo las que están en producción.
+    # Con búsqueda: se buscan en todas, incluidas las finalizadas.
+    if not q and not doc:
+        condiciones.append("ISNULL(p.Estado, '') <> 'Finalizada'")
+
+    where = ' WHERE ' + ' AND '.join(condiciones)
+
+    cursor.execute("SELECT COUNT(*) FROM Partidas p" + where, tuple(params))
+    total = cursor.fetchone()[0]
 
     cursor.execute("""
-            SELECT
-        p.NumeroPartida,
-        p.NumeroDocumento,
-        p.Cliente,
-        p.Color,
-        p.Rollos,
-        p.Kilos,
-        p.ProcesoActual,
-        p.Estado,
-        p.Articulo,
-        pr.NombreProceso,
-        o.Nombre AS Operario,
-        m.Nombre AS Maquina
-    FROM Partidas p
-
-    OUTER APPLY (
-        SELECT TOP 1
+        SELECT
+            p.NumeroPartida,
+            p.NumeroDocumento,
+            p.Cliente,
+            p.Color,
+            p.Rollos,
+            p.Kilos,
+            p.ProcesoActual,
+            p.Estado,
+            p.Articulo,
             pr.NombreProceso,
-            pr.OperarioID,
-            pr.MaquinaID
-        FROM Procesos pr
-        WHERE pr.NumeroPartida = p.NumeroPartida
-          AND pr.NombreProceso = 'Teñido'
-        ORDER BY pr.ProcesoID DESC
-    ) pr
-
-    LEFT JOIN Operarios o
-        ON pr.OperarioID = o.OperarioID
-
-    LEFT JOIN Maquinas m
-        ON pr.MaquinaID = m.MaquinaID
-    """)
+            o.Nombre AS Operario,
+            m.Nombre AS Maquina
+        FROM Partidas p
+        OUTER APPLY (
+            SELECT TOP 1
+                pr.NombreProceso,
+                pr.OperarioID,
+                pr.MaquinaID
+            FROM Procesos pr
+            WHERE pr.NumeroPartida = p.NumeroPartida
+              AND pr.NombreProceso = 'Teñido'
+            ORDER BY pr.ProcesoID DESC
+        ) pr
+        LEFT JOIN Operarios o ON pr.OperarioID = o.OperarioID
+        LEFT JOIN Maquinas m ON pr.MaquinaID = m.MaquinaID
+    """ + where + f"""
+        ORDER BY p.NumeroPartida
+        OFFSET 0 ROWS FETCH NEXT {LIMITE_SUPERVISOR} ROWS ONLY
+    """, tuple(params))
 
     partidas = cursor.fetchall()
 
     return render_template(
         'supervisor_tintoreria.html',
-        partidas=partidas
+        partidas=partidas, q=q, doc=doc,
+        total=total, limite=LIMITE_SUPERVISOR
     )
     
 
@@ -1388,4 +1418,4 @@ def admin_estado(cat):
 # EJECUCIÓN DEL SERVIDOR
 # -------------------------------
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=False)

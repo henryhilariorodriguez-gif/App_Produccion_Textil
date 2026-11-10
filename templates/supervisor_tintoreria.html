@@ -158,29 +158,20 @@
 
     <div class="contenedor">
 
-        <div class="filtros">
-
-            <h2>Buscar partidas</h2>
-
-            <input
-                type="text"
-                id="buscarPartida"
-                placeholder="Partida">
-
-            <input
-                type="text"
-                id="buscarDocumento"
-                placeholder="Documento">
-
-            <select>
-                <option>Todos los clientes</option>
-            </select>
-
-            <select>
-                <option>Todos los estados</option>
-            </select>
-
+       <div class="filtros">
+           <h2>Buscar partidas</h2>
+           <form method="get">
+               <input type="text" name="q" value="{{ q or '' }}" placeholder="Partida">
+               <input type="text" name="doc" value="{{ doc or '' }}" placeholder="Documento">
+               <button type="submit" class="btn-historial">Buscar</button>
+            </form>
         </div>
+
+        <p>
+            Mostrando {{ partidas|length }} de {{ total }} partidas
+            {% if q or doc %}(búsqueda en todas, incluidas las finalizadas){% else %}en producción{% endif %}
+            {% if partidas|length >= limite %} — hay más: afina la búsqueda{% endif %}
+        </p>
 
         <h2 class="titulo">Partidas en producción</h2>
 
@@ -314,47 +305,6 @@
     </div>
 </div>
     <script>
-
-    const buscarPartida = document.getElementById("buscarPartida");
-    const partidas = document.querySelectorAll(".partida");
-
-    buscarPartida.addEventListener("input", function() {
-
-        const texto = buscarPartida.value.toLowerCase();
-
-        partidas.forEach(function(partida) {
-
-            const numero = partida.dataset.partida.toLowerCase();
-
-            if (numero.includes(texto)) {
-                partida.style.display = "";
-            } else {
-                partida.style.display = "none";
-            }
-
-        });
-
-    });
-
-    const buscarDocumento = document.getElementById("buscarDocumento");
-
-buscarDocumento.addEventListener("input", function() {
-
-    const texto = buscarDocumento.value.toLowerCase();
-
-    partidas.forEach(function(partida) {
-
-        const documento = partida.dataset.documento.toLowerCase();
-
-        if (documento.includes(texto)) {
-            partida.style.display = "";
-        } else {
-            partida.style.display = "none";
-        }
-
-    });
-
-});
 
 const modalHistorial = document.getElementById("modalHistorial");
 const contenidoHistorial = document.getElementById("contenidoHistorial");
