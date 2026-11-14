@@ -108,6 +108,7 @@ const CAMPOS = ['numero', 'codigo_crudo', 'articulo', 'color', 'codcolor', 'roll
 const partidas = [];
 let editando = -1;
 let cargado = false;
+let guiaRepetida = false;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const modal = new bootstrap.Modal($('modalPartida'));
@@ -117,7 +118,7 @@ function esCrexsa() {
 }
 
 function revisarCabecera() {
-    $('btnAgregar').disabled = !($('documento').value.trim() && $('cliente').value.trim());
+    $('btnAgregar').disabled = guiaRepetida || !($('documento').value.trim() && $('cliente').value.trim());
     dibujar();
 }
 
@@ -140,7 +141,7 @@ function dibujar() {
         </tr>`;
     }).join('');
     $('totales').textContent = `Partidas: ${partidas.length} · Rollos: ${rollos} · Kilos: ${kilos.toFixed(2)}`;
-    $('btnCargar').disabled = partidas.length === 0;
+    $('btnCargar').disabled = partidas.length === 0 || guiaRepetida;
 }
 
 
@@ -196,7 +197,7 @@ function errorModal(mensaje) {
     $('errModal').classList.remove('d-none');
 }
 
-function guardar(cerrar) {
+async function guardar(cerrar) {
     const p = {};
     CAMPOS.forEach(k => p[k] = $(k).value.trim());
     const otras = partidas.filter((_, i) => i !== editando);
@@ -207,6 +208,9 @@ function guardar(cerrar) {
     if (esCrexsa() && otras.some(o => o.codigo_crudo.toLowerCase() === p.codigo_crudo.toLowerCase())) {
         return errorModal('El código de crudo ' + p.codigo_crudo + ' ya está en esta guía.');
     }
+
+    const msg = await existeEnSistema(p.numero, esCrexsa() ? p.codigo_crudo : '');
+    if (msg) return errorModal(msg);
 
     if (editando >= 0) partidas[editando] = p; else partidas.push(p);
     dibujar();
@@ -228,6 +232,56 @@ $('formPartida').addEventListener('submit', e => {
     guardar(false);
 });
 $('modalPartida').addEventListener('shown.bs.modal', () => $('numero').focus());
+
+async function existeEnSistema(numero, crudo) {
+    if (!numero && !crudo) return null;
+    try {
+        const r = await fetch('/api/verificar_partida?numero=' + encodeURIComponent(numero) +
+                              '&codigo_crudo=' + encodeURIComponent(crudo));
+        const d = await r.json();
+        if (d.partida) {
+            return 'La partida ' + numero + ' ya existe en el sistema' +
+                   (d.partida.guia ? ' (guía ' + d.partida.guia + ')' : '') + '.';
+        }
+        if (d.crudo) return 'El código de crudo ' + crudo + ' ya está en la partida ' + d.crudo + '.';
+    } catch (e) { /* el servidor vuelve a validar al cargar */ }
+    return null;
+}
+
+async function avisarSiExiste() {
+    const crudo = esCrexsa() ? $('codigo_crudo').value.trim() : '';
+    const msg = await existeEnSistema($('numero').value.trim(), crudo);
+    if (msg) errorModal(msg); else $('errModal').classList.add('d-none');
+}
+$('numero').addEventListener('change', avisarSiExiste);
+$('codigo_crudo').addEventListener('change', avisarSiExiste);
+
+async function verificarGuia() {
+    const documento = $('documento').value.trim();
+    const cliente = $('cliente').value.trim();
+    guiaRepetida = false;
+    $('errGuia').classList.add('d-none');
+    if (documento && cliente) {
+        try {
+            const r = await fetch('/api/verificar_guia?documento=' + encodeURIComponent(documento) +
+                                  '&cliente=' + encodeURIComponent(cliente));
+            const d = await r.json();
+            if (d.existe) {
+                guiaRepetida = true;
+                $('errGuia').textContent = 'La guía ' + documento + ' ya fue ingresada para ' + cliente +
+                    ' (' + d.partidas.length + ' partidas: ' + d.partidas.join(', ') + '). Corrige el número de guía.';
+                $('errGuia').classList.remove('d-none');
+            }
+        } catch (e) { /* el servidor vuelve a validar al cargar */ }
+    }
+    revisarCabecera();
+}
+
+function cabeceraCambio() {
+    guiaRepetida = false;
+    $('errGuia').classList.add('d-none');
+    revisarCabecera();
+}
 
 async function cargarGuia() {
     if (!confirm(`¿Cargar ${partidas.length} partidas de la guía ${$('documento').value.trim()}?`)) return;
@@ -265,8 +319,10 @@ window.addEventListener('beforeunload', e => {
     }
 });
 
-$('documento').addEventListener('input', revisarCabecera);
-$('cliente').addEventListener('input', revisarCabecera);
+$('documento').addEventListener('input', cabeceraCambio);
+$('cliente').addEventListener('input', cabeceraCambio);
+$('documento').addEventListener('change', verificarGuia);
+$('cliente').addEventListener('change', verificarGuia);
 revisarCabecera();
 </script>
 </body>

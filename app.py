@@ -213,15 +213,29 @@ def index():
     condiciones = []
     params = []
 
-    if ver == 'activas':
-        condiciones.append("ISNULL(p.Estado, '') <> 'Finalizada'")
+    estado_activas = "ISNULL(p.Estado, '') <> 'Finalizada'"
 
     if q:
-        condiciones.append(
+        busqueda = (
             "(p.NumeroPartida LIKE ? OR p.Cliente LIKE ? OR p.Color LIKE ? "
             "OR p.Articulo LIKE ? OR p.CodigoCrudo LIKE ?)"
         )
-        params.extend([f'%{q}%'] * 5)
+        # Partidas que comparten guía (y cliente) con la partida buscada
+        misma_guia = (
+            "EXISTS (SELECT 1 FROM Partidas b "
+            "WHERE b.NumeroPartida LIKE ? "
+            "AND b.NumeroDocumento IS NOT NULL "
+            "AND b.NumeroDocumento = p.NumeroDocumento "
+            "AND b.Cliente = p.Cliente)"
+        )
+        if ver == 'activas':
+            # La búsqueda normal respeta "En proceso"; la guía sale completa
+            condiciones.append(f"(({busqueda} AND {estado_activas}) OR {misma_guia})")
+        else:
+            condiciones.append(f"({busqueda} OR {misma_guia})")
+        params.extend([f'%{q}%'] * 6)
+    elif ver == 'activas':
+        condiciones.append(estado_activas)
 
     where = (' WHERE ' + ' AND '.join(condiciones)) if condiciones else ''
 
@@ -621,6 +635,47 @@ def nueva_partida():
     return render_template('nueva_partida.html', articulos=articulos)
 
  # -------------------------------
+ 
+# -------------------------------
+# VERIFICACIONES EN VIVO (ingreso por guía)
+# -------------------------------
+@app.route('/api/verificar_guia')
+@administrador_requerido
+def api_verificar_guia():
+    documento = (request.args.get('documento') or '').strip()
+    cliente = (request.args.get('cliente') or '').strip()
+    if not documento or not cliente:
+        return {'existe': False, 'partidas': []}
+    cursor.execute("""
+        SELECT NumeroPartida FROM Partidas
+        WHERE NumeroDocumento = ? AND Cliente = ?
+        ORDER BY NumeroPartida
+    """, (documento, cliente))
+    partidas = [f[0] for f in cursor.fetchall()]
+    return {'existe': len(partidas) > 0, 'partidas': partidas}
+
+
+@app.route('/api/verificar_partida')
+@administrador_requerido
+def api_verificar_partida():
+    numero = (request.args.get('numero') or '').strip()
+    crudo = (request.args.get('codigo_crudo') or '').strip()
+    resultado = {'partida': None, 'crudo': None}
+
+    if numero:
+        cursor.execute("SELECT NumeroDocumento FROM Partidas WHERE NumeroPartida = ?", (numero,))
+        fila = cursor.fetchone()
+        if fila:
+            resultado['partida'] = {'guia': fila[0]}
+
+    if crudo:
+        cursor.execute("SELECT NumeroPartida FROM Partidas WHERE CodigoCrudo = ?", (crudo,))
+        fila = cursor.fetchone()
+        if fila:
+            resultado['crudo'] = fila[0]
+
+    return resultado
+#---------------------------------------- 
 # INGRESO POR GUÍA
 # -------------------------------
 @app.route('/nueva_guia', methods=['GET', 'POST'])
@@ -636,6 +691,10 @@ def nueva_guia():
 
         if not documento or not cliente or not partidas:
             return {'ok': False, 'error': 'Faltan datos de la guía.'}
+        cursor.execute("SELECT COUNT(*) FROM Partidas WHERE NumeroDocumento = ? AND Cliente = ?",
+                       (documento, cliente))
+        if cursor.fetchone()[0] > 0:
+            return {'ok': False, 'error': f'La guía {documento} ya fue ingresada para {cliente}.'}
 
         numeros = [p['numero'].strip() for p in partidas]
         if len(set(numeros)) != len(numeros):

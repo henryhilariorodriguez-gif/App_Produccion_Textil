@@ -1,13 +1,14 @@
 import os
 import pandas as pd
 import pyodbc
+from openpyxl import load_workbook
 
 # ============================================================
 # DIAS QUE SE VAN A AGREGAR (ambos incluidos)
 # ============================================================
 
-FECHA_DESDE = "2026-10-17"
-FECHA_HASTA = "2026-10-21"
+FECHA_DESDE = "2026-11-10"
+FECHA_HASTA = "2026-11-11"
 
 # ============================================================
 # ARCHIVOS EXCEL, HOJAS Y TABLAS DE DESTINO (igual que migrar_excel.py)
@@ -56,6 +57,14 @@ CADENA_CONEXION = (
 # ============================================================
 # LEER EL EXCEL Y QUEDARSE SOLO CON LOS DIAS PEDIDOS
 # ============================================================
+def leer_hoja(archivo, hoja, n_cols):
+    wb = load_workbook(archivo, read_only=True, data_only=True)
+    ws = wb[hoja]
+    filas = ws.iter_rows(min_row=1, max_col=n_cols, values_only=True)
+    next(filas)  # salta el encabezado
+    datos = [["" if v is None else str(v) for v in f] for f in filas]
+    wb.close()
+    return pd.DataFrame(datos, columns=list(range(n_cols)))
 
 def preparar_datos(origen):
     archivo = origen["archivo"]
@@ -68,13 +77,7 @@ def preparar_datos(origen):
     if not os.path.isfile(archivo):
         raise FileNotFoundError(f"No se encuentra el archivo:\n{archivo}")
 
-    df = pd.read_excel(
-        archivo,
-        sheet_name=hoja,
-        dtype=str,
-        keep_default_na=False,
-        usecols=list(range(len(columnas)))
-    )
+    df = leer_hoja(archivo, hoja, len(columnas))
 
     if df.shape[1] != len(columnas):
         raise ValueError(
